@@ -1,0 +1,118 @@
+{
+  "command_type": "jupyter-dev",
+  "status": "complete",
+  "session_id": "pipeline-step-testing-20260201",
+  "parent_session_id": null,
+  "session_summary": "Created Jupyter notebook to test each individual pipeline step from KBDatalakeUtils.py. Built util.py with all pipeline step methods as independent functions, plus inspection helpers. Notebook has 14 cells (markdown + code pairs) covering all 11 pipeline steps plus setup and final inspection.",
+
+  "project": {
+    "name": "KBDatalakeApps",
+    "notebook_name": "test_pipeline_steps.ipynb",
+    "purpose": "Test each individual step of the KBDataLakeUtils.run_full_pipeline() method independently"
+  },
+
+  "structure": {
+    "directories_created": ["data", "datacache", "genomes", "models", "nboutput"],
+    "util_py_status": "created",
+    "notebook_path": "notebooks/test_pipeline_steps.ipynb"
+  },
+
+  "notebook_cells": [
+    {"cell_number": 1, "type": "markdown", "purpose": "Notebook title and overview of pipeline steps", "data_loaded": [], "data_saved": []},
+    {"cell_number": 2, "type": "markdown", "purpose": "Step 0 description - setup and configuration", "data_loaded": [], "data_saved": []},
+    {"cell_number": 3, "type": "code", "purpose": "Step 0: Setup pipeline configuration (workspace, refs, directory)", "data_loaded": [], "data_saved": ["pipeline_config"]},
+    {"cell_number": 4, "type": "markdown", "purpose": "Step 1 description - process arguments into genome table", "data_loaded": [], "data_saved": []},
+    {"cell_number": 5, "type": "code", "purpose": "Step 1: Process input_refs into user_genomes.tsv", "data_loaded": ["pipeline_config"], "data_saved": ["user_genomes_df"]},
+    {"cell_number": 6, "type": "markdown", "purpose": "Step 2 description - download assemblies", "data_loaded": [], "data_saved": []},
+    {"cell_number": 7, "type": "code", "purpose": "Step 2: Download genome assemblies", "data_loaded": ["pipeline_config"], "data_saved": ["downloaded_assemblies"]},
+    {"cell_number": 8, "type": "markdown", "purpose": "Step 3 description - download genome genes", "data_loaded": [], "data_saved": []},
+    {"cell_number": 9, "type": "code", "purpose": "Step 3: Download genome genes and annotations", "data_loaded": ["pipeline_config"], "data_saved": ["genome_gene_counts"]},
+    {"cell_number": 10, "type": "markdown", "purpose": "Step 4 description - SKANI analysis", "data_loaded": [], "data_saved": []},
+    {"cell_number": 11, "type": "code", "purpose": "Step 4: Run SKANI against pangenome/fitness/phenotype DBs", "data_loaded": ["pipeline_config"], "data_saved": ["skani_hit_counts"]},
+    {"cell_number": 12, "type": "markdown", "purpose": "Step 5 description - RAST annotation", "data_loaded": [], "data_saved": []},
+    {"cell_number": 13, "type": "code", "purpose": "Step 5: Annotate genomes with RAST", "data_loaded": ["pipeline_config"], "data_saved": ["rast_annotation_counts"]},
+    {"cell_number": 14, "type": "markdown", "purpose": "Step 6a description - single model build (debug)", "data_loaded": [], "data_saved": []},
+    {"cell_number": 15, "type": "code", "purpose": "Step 6a: Build single model in-process for debugging", "data_loaded": ["pipeline_config"], "data_saved": ["single_model_result"]},
+    {"cell_number": 16, "type": "markdown", "purpose": "Step 6b description - parallel model build", "data_loaded": [], "data_saved": []},
+    {"cell_number": 17, "type": "code", "purpose": "Step 6b: Build all models with ProcessPoolExecutor", "data_loaded": ["pipeline_config"], "data_saved": ["all_model_results"]},
+    {"cell_number": 18, "type": "markdown", "purpose": "Step 7 description - phenotype simulations", "data_loaded": [], "data_saved": []},
+    {"cell_number": 19, "type": "code", "purpose": "Step 7: Run phenotype simulations in parallel", "data_loaded": ["pipeline_config"], "data_saved": ["phenotype_results"]},
+    {"cell_number": 20, "type": "markdown", "purpose": "Step 8 description - SQLite database", "data_loaded": [], "data_saved": []},
+    {"cell_number": 21, "type": "code", "purpose": "Step 8: Build SQLite database from all outputs", "data_loaded": ["pipeline_config"], "data_saved": ["sqlite_tables"]},
+    {"cell_number": 22, "type": "markdown", "purpose": "Step 9 description - save annotated genomes", "data_loaded": [], "data_saved": []},
+    {"cell_number": 23, "type": "code", "purpose": "Step 9: Save annotated genomes to KBase workspace", "data_loaded": ["pipeline_config"], "data_saved": ["saved_genome_refs"]},
+    {"cell_number": 24, "type": "markdown", "purpose": "Step 10 description - save models to KBase", "data_loaded": [], "data_saved": []},
+    {"cell_number": 25, "type": "code", "purpose": "Step 10: Save metabolic models to KBase workspace", "data_loaded": ["pipeline_config"], "data_saved": ["saved_model_ids"]},
+    {"cell_number": 26, "type": "markdown", "purpose": "Step 11 description - generate report", "data_loaded": [], "data_saved": []},
+    {"cell_number": 27, "type": "code", "purpose": "Step 11: Generate and save KBase report", "data_loaded": ["pipeline_config"], "data_saved": ["report_info"]},
+    {"cell_number": 28, "type": "markdown", "purpose": "Inspection cell description", "data_loaded": [], "data_saved": []},
+    {"cell_number": 29, "type": "code", "purpose": "Review all pipeline outputs - directories, files, SQLite, datacache", "data_loaded": ["pipeline_config"], "data_saved": []}
+  ],
+
+  "utility_functions": [
+    {"name": "setup_pipeline", "purpose": "Configure workspace, input refs, pipeline directory, and worker count", "added_to_util_py": true},
+    {"name": "step_process_arguments", "purpose": "Step 1: Process input_refs into user_genomes.tsv", "added_to_util_py": true},
+    {"name": "_extract_genome_metadata", "purpose": "Extract metadata row from a genome object", "added_to_util_py": true},
+    {"name": "step_download_assemblies", "purpose": "Step 2: Download FASTA assemblies", "added_to_util_py": true},
+    {"name": "step_download_genome_genes", "purpose": "Step 3: Download genes and create per-genome TSV files", "added_to_util_py": true},
+    {"name": "step_run_skani_analysis", "purpose": "Step 4: Run SKANI against pangenome/fitness/phenotype DBs", "added_to_util_py": true},
+    {"name": "step_annotate_with_rast", "purpose": "Step 5: Annotate genomes with RAST", "added_to_util_py": true},
+    {"name": "step_build_single_model", "purpose": "Step 6a: Build one metabolic model in-process for debugging", "added_to_util_py": true},
+    {"name": "step_build_all_models_parallel", "purpose": "Step 6b: Build all models with ProcessPoolExecutor", "added_to_util_py": true},
+    {"name": "step_run_phenotype_simulations", "purpose": "Step 7: Run phenotype simulations in parallel", "added_to_util_py": true},
+    {"name": "_build_phenotype_tables", "purpose": "Build summary TSV tables from phenotype simulation JSON results", "added_to_util_py": true},
+    {"name": "step_build_sqlite_db", "purpose": "Step 8: Build SQLite database from all pipeline outputs", "added_to_util_py": true},
+    {"name": "step_save_annotated_genomes", "purpose": "Step 9: Save RAST-annotated genomes to KBase workspace", "added_to_util_py": true},
+    {"name": "step_save_models_to_kbase", "purpose": "Step 10: Save COBRA models to KBase workspace", "added_to_util_py": true},
+    {"name": "step_generate_report", "purpose": "Step 11: Generate and save KBase HTML report", "added_to_util_py": true},
+    {"name": "inspect_user_genomes", "purpose": "Load and display user_genomes.tsv", "added_to_util_py": true},
+    {"name": "inspect_genome_genes", "purpose": "Load and display gene table for a specific genome", "added_to_util_py": true},
+    {"name": "inspect_skani_results", "purpose": "Load and display all SKANI results", "added_to_util_py": true},
+    {"name": "inspect_models", "purpose": "List built models and show basic stats", "added_to_util_py": true},
+    {"name": "inspect_sqlite_db", "purpose": "Show SQLite tables and row counts", "added_to_util_py": true}
+  ],
+
+  "files": {
+    "created": [
+      {"path": "notebooks/util.py", "purpose": "Centralized utilities with all pipeline step methods and inspection helpers", "type": "code"},
+      {"path": "notebooks/test_pipeline_steps.ipynb", "purpose": "Jupyter notebook testing each pipeline step independently", "type": "code"},
+      {"path": "notebooks/data/", "purpose": "Input data directory", "type": "config"},
+      {"path": "notebooks/datacache/", "purpose": "JSON intermediate data cache", "type": "config"},
+      {"path": "notebooks/genomes/", "purpose": "Genome files directory", "type": "config"},
+      {"path": "notebooks/models/", "purpose": "COBRA model files directory", "type": "config"},
+      {"path": "notebooks/nboutput/", "purpose": "Non-JSON output files directory", "type": "config"}
+    ],
+    "modified": [],
+    "deleted": []
+  },
+
+  "artifacts": {
+    "notebook_filename": "notebooks/test_pipeline_steps.ipynb",
+    "util_py_path": "notebooks/util.py",
+    "cell_count": 29,
+    "utility_function_count": 20
+  },
+
+  "validation": {
+    "all_cells_have_markdown": true,
+    "all_cells_start_with_run_util": true,
+    "data_loading_uses_util_load": true,
+    "data_saving_uses_util_save": true,
+    "cells_independent": true,
+    "files_in_correct_directories": true
+  },
+
+  "comments": [
+    "Notebook covers all 11 pipeline steps from run_full_pipeline() plus setup and inspection",
+    "Step 6 is split into 6a (single model debug) and 6b (parallel) for easier debugging",
+    "util.py inherits from the same base classes as KBDataLakeUtils (KBReadsUtils, SKANIUtils, MSReconstructionUtils, MSFBAUtils, MSBiochemUtils)",
+    "Each cell reloads pipeline_config from datacache for full independence",
+    "Inspection helpers (inspect_*) provide quick data verification between steps",
+    "Final inspection cell gives a comprehensive view of all pipeline outputs",
+    "Pipeline output goes to notebooks/data/pipeline_test/ by default to keep it separate from notebook structure directories",
+    "User must edit workspace_name and input_refs in Step 0 cell before running"
+  ],
+
+  "queries_for_user": [],
+  "errors": []
+}
