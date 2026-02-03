@@ -262,7 +262,7 @@ class KBDataLakeUtils(KBReadsUtils, KBGenomeUtils, SKANIUtils, MSReconstructionU
             except Exception as e:
                 print(f"  Warning: SKANI analysis against {db_name} failed: {e}")
 
-    def pipeline_run_pangenome_kberdle_query(self):
+    def pipeline_run_pangenome_kberdl_query(self):
         """
         Pipeline step for running pangenome query against KBase BERDL.
         """
