@@ -108,6 +108,7 @@ Author: chenry
         self.logger.info(f"Building genome datalake tables with params: {params}")
 
         input_params = Path(self.shared_folder) / 'input_params.json'
+        print(str(input_params.resolve()))
         with open(str(input_params.resolve()), 'w') as fh:
             _params = dict(params)
             _params['_scratch'] = self.shared_folder
