@@ -55,6 +55,11 @@ class OntologyEnrichment:
 
     # Cache for KEGG KO definitions (loaded once)
     _kegg_ko_cache: Dict[str, str] = None
+    # Cache for COG definitions (loaded once)
+    _cog_def_cache: Dict[str, Dict] = None
+
+    # COG definition file from NCBI FTP
+    COG_DEF_URL = "https://ftp.ncbi.nih.gov/pub/COG/COG2020/data/cog-20.def.tab"
 
     def __init__(self, token: str):
         """
@@ -217,14 +222,60 @@ class OntologyEnrichment:
 
         return results
 
-    def _enrich_cog_local(self, cog_ids: List[str], cog_definitions: Dict[str, str] = None) -> Dict[str, Dict]:
+    def _load_cog_definitions(self) -> Dict[str, Dict]:
         """
-        Enrich COG terms from local definitions.
+        Load COG definitions from NCBI FTP.
 
-        COG definitions are typically loaded from a local file since they're not
-        reliably available via BERDL API.
+        Downloads https://ftp.ncbi.nih.gov/pub/COG/COG2020/data/cog-20.def.tab
+        which contains ~5,000 COG definitions.
+
+        Returns:
+            Dict mapping COG ID (e.g., 'COG0001') to dict with name, category, gene, pathway
         """
-        results = {}
+        if OntologyEnrichment._cog_def_cache is not None:
+            return OntologyEnrichment._cog_def_cache
+
+        print("    Loading COG definitions from NCBI FTP...")
+        try:
+            response = requests.get(self.COG_DEF_URL, timeout=60)
+
+            if response.status_code == 200:
+                cog_dict = {}
+                for line in response.text.strip().split('\n'):
+                    parts = line.split('\t')
+                    if len(parts) >= 3:
+                        cog_id = parts[0]  # COG0001
+                        category = parts[1] if len(parts) > 1 else ''
+                        name = parts[2] if len(parts) > 2 else ''
+                        gene = parts[3] if len(parts) > 3 else ''
+                        pathway = parts[4] if len(parts) > 4 else ''
+
+                        cog_dict[cog_id] = {
+                            'name': name,
+                            'category': category,
+                            'gene': gene,
+                            'pathway': pathway
+                        }
+
+                OntologyEnrichment._cog_def_cache = cog_dict
+                print(f"    Loaded {len(cog_dict)} COG definitions")
+                return cog_dict
+            else:
+                print(f"    NCBI FTP error: {response.status_code}")
+                return {}
+
+        except Exception as e:
+            print(f"    Error loading COG definitions: {e}")
+            return {}
+
+    def _enrich_cog_from_ncbi(self, cog_ids: List[str]) -> Dict[str, Dict]:
+        """
+        Enrich COG terms from NCBI COG database.
+
+        Downloads definitions from NCBI FTP (cached after first call).
+        """
+        # Load COG definitions (cached)
+        cog_definitions = self._load_cog_definitions()
 
         # COG category descriptions
         cog_categories = {
@@ -256,6 +307,7 @@ class OntologyEnrichment:
             'S': 'Function unknown',
         }
 
+        results = {}
         for cog_id in cog_ids:
             # Handle COG categories (single letter, e.g., COG:J)
             if re.match(r'COG:[A-Z]$', cog_id):
@@ -265,13 +317,14 @@ class OntologyEnrichment:
                     'definition': ''
                 }
             # Handle COG IDs (e.g., COG:COG0001)
-            elif cog_definitions and cog_id in cog_definitions:
-                results[cog_id] = {
-                    'label': cog_definitions[cog_id],
-                    'definition': ''
-                }
             else:
-                results[cog_id] = {'label': '', 'definition': ''}
+                # Extract COG ID (COG:COG0001 -> COG0001)
+                raw_id = cog_id.replace('COG:', '')
+                info = cog_definitions.get(raw_id, {})
+                results[cog_id] = {
+                    'label': info.get('name', ''),
+                    'definition': f"Category: {info.get('category', '')}. Gene: {info.get('gene', '')}. Pathway: {info.get('pathway', '')}" if info else ''
+                }
 
         return results
 
@@ -363,10 +416,10 @@ class OntologyEnrichment:
             kegg_results = self._enrich_kegg_from_api(kegg_terms)
             all_results.update(kegg_results)
 
-        # Enrich COG locally
+        # Enrich COG from NCBI FTP
         if cog_terms:
-            print(f"  Enriching {len(cog_terms)} COG terms...")
-            cog_results = self._enrich_cog_local(cog_terms, cog_definitions)
+            print(f"  Enriching {len(cog_terms)} COG terms from NCBI...")
+            cog_results = self._enrich_cog_from_ncbi(cog_terms)
             all_results.update(cog_results)
 
         # Build result DataFrame
