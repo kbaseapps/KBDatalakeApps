@@ -37,7 +37,12 @@ from typing import List, Dict, Optional, Set
 
 class OntologyEnrichment:
     """
-    Enrich ontology terms with labels and definitions from BERDL.
+    Enrich ontology terms with labels and definitions from BERDL and other APIs.
+
+    Data sources:
+    - BERDL API: GO, EC, SO, PFAM
+    - KEGG REST API: KEGG KO (https://rest.kegg.jp/list/ko)
+    - Local definitions: COG categories
     """
 
     BERDL_API_URL = "https://hub.berdl.kbase.us/apis/mcp/delta/tables/query"
@@ -47,6 +52,9 @@ class OntologyEnrichment:
     BATCH_SIZE = 100
     PAGE_LIMIT = 1000
     TIMEOUT = 60
+
+    # Cache for KEGG KO definitions (loaded once)
+    _kegg_ko_cache: Dict[str, str] = None
 
     def __init__(self, token: str):
         """
@@ -144,37 +152,68 @@ class OntologyEnrichment:
 
         return results
 
+    def _load_kegg_ko_list(self) -> Dict[str, str]:
+        """
+        Load all KEGG KO definitions from KEGG REST API.
+
+        Uses https://rest.kegg.jp/list/ko to get ~26,000 KO definitions in one call.
+        Results are cached for subsequent calls.
+
+        Returns:
+            Dict mapping KO ID (e.g., 'K00001') to definition string
+        """
+        if OntologyEnrichment._kegg_ko_cache is not None:
+            return OntologyEnrichment._kegg_ko_cache
+
+        print("    Loading KEGG KO definitions from REST API...")
+        try:
+            url = f"{self.KEGG_API_URL}/list/ko"
+            response = requests.get(url, timeout=120)
+
+            if response.status_code == 200:
+                ko_dict = {}
+                for line in response.text.strip().split('\n'):
+                    parts = line.split('\t')
+                    if len(parts) >= 2:
+                        # ko:K00001 -> K00001
+                        ko_id = parts[0].replace('ko:', '')
+                        definition = parts[1]
+                        ko_dict[ko_id] = definition
+
+                OntologyEnrichment._kegg_ko_cache = ko_dict
+                print(f"    Loaded {len(ko_dict)} KEGG KO definitions")
+                return ko_dict
+            else:
+                print(f"    KEGG API error: {response.status_code}")
+                return {}
+
+        except Exception as e:
+            print(f"    Error loading KEGG KO list: {e}")
+            return {}
+
     def _enrich_kegg_from_api(self, ko_ids: List[str]) -> Dict[str, Dict]:
         """
         Enrich KEGG KO terms from KEGG REST API.
+
+        Uses the bulk list endpoint for efficiency (~26,000 KOs in one call).
         """
+        # Load full KO list (cached after first call)
+        ko_definitions = self._load_kegg_ko_list()
+
         results = {}
-
         for ko_id in ko_ids:
-            try:
-                # Extract the K number (e.g., K00001 from KEGG:K00001)
-                k_num = ko_id.replace('KEGG:', '')
+            # Extract K number (e.g., K00001 from KEGG:K00001)
+            k_num = ko_id.replace('KEGG:', '')
 
-                url = f"{self.KEGG_API_URL}/get/{k_num}"
-                response = requests.get(url, timeout=30)
-
-                if response.status_code == 200:
-                    text = response.text
-                    label = ''
-                    definition = ''
-
-                    for line in text.split('\n'):
-                        if line.startswith('NAME'):
-                            label = line.replace('NAME', '').strip()
-                        elif line.startswith('DEFINITION'):
-                            definition = line.replace('DEFINITION', '').strip()
-
-                    results[ko_id] = {'label': label, 'definition': definition}
-
-                time.sleep(0.1)  # Rate limiting
-
-            except Exception as e:
-                print(f"KEGG API error for {ko_id}: {e}")
+            definition = ko_definitions.get(k_num, '')
+            if definition:
+                # Parse label from definition
+                # Format: "E1.1.1.1, adh; alcohol dehydrogenase [EC:1.1.1.1]"
+                # Label is everything before [EC:...] or the whole thing
+                label = re.sub(r'\s*\[EC:[^\]]+\]', '', definition).strip()
+                results[ko_id] = {'label': label, 'definition': definition}
+            else:
+                results[ko_id] = {'label': '', 'definition': ''}
 
         return results
 
