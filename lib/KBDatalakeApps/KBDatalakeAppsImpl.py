@@ -44,7 +44,7 @@ Author: chenry
     ######################################### noqa
     VERSION = "0.0.1"
     GIT_URL = "git@github.com:kbaseapps/KBDatalakeApps.git"
-    GIT_COMMIT_HASH = "38ab5c13d23b7876d213dbc747d958806a775883"
+    GIT_COMMIT_HASH = "57ad9974af809ff24506351db02203a0481358e4"
 
     #BEGIN_CLASS_HEADER
     def _validate_params(self, params, required_keys):
