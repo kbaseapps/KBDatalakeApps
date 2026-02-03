@@ -8,6 +8,7 @@ from cobrakbase import KBaseAPI
 
 
 def main(input_params):
+    print(os.environ)
     #  setup clients/methods
     kbase = KBaseAPI(input_params['_ctx']['token'], dev=True)
     #kbase = KBaseAPI(input_params['_ctx']['token'], config={

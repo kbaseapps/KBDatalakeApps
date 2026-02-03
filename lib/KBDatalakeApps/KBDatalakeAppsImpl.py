@@ -63,11 +63,15 @@ Author: chenry
     @staticmethod
     def run_genome_pipeline(input_file):
         cmd = ["/kb/module/scripts/run_genome_pipeline.sh", str(input_file)]
+
+        env = os.environ.copy()
+
         process = subprocess.Popen(
             cmd,
             stdout=None,  # inherit parent stdout
             stderr=None,  # inherit parent stderr
-            text=True
+            text=True,
+            env=env
         )
 
         returncode = process.wait()
@@ -131,11 +135,11 @@ Author: chenry
             _params['_ctx'] = ctx
             _params['_config'] = self.config
 
-            #print('to create a copy for debug:', _params)
+            print('to create a copy for debug:', _params)
 
             fh.write(json.dumps(_params))
 
-        #print(os.environ)
+        print(os.environ)
         #print('ctx', ctx)
         #print('contig', self.config)
         print('data dir')
