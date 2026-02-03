@@ -6,6 +6,7 @@ import os
 import uuid
 from pathlib import Path
 import shutil
+import json
 import subprocess
 
 from installed_clients.KBaseReportClient import KBaseReport
@@ -206,15 +207,23 @@ Author: chenry
         output_directory = os.path.join(self.shared_folder, str(uuid.uuid4()))
         shutil.copytree('/kb/module/data/html', output_directory)
 
+        # Write app-config.json so the DataTables Viewer knows which object to display
+        # Use the first input reference as the UPA for the viewer
+        app_config = {
+            "upa": input_refs[0] if input_refs else None
+        }
+        app_config_path = os.path.join(output_directory, 'app-config.json')
+        with open(app_config_path, 'w') as f:
+            json.dump(app_config, f, indent=4)
+        self.logger.info(f"Wrote app-config.json with UPA: {app_config['upa']}")
+
         shock_id = self.dfu.file_to_shock({
             'file_path': output_directory,
             'pack': 'zip'
         })['shock_id']
 
-        print(os.listdir('/kb/module/data/html'))
-        print(output_directory)
-        print(os.listdir(output_directory))
-        print(shock_id)
+        self.logger.info(f"HTML directory contents: {os.listdir(output_directory)}")
+        self.logger.info(f"Shock ID: {shock_id}")
         
 
         html_report = [{
