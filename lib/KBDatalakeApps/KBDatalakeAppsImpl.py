@@ -67,13 +67,12 @@ Author: chenry
         cmd = ["/kb/module/scripts/run_genome_pipeline.sh", str(input_file)]
 
         env = os.environ.copy()
-        env["PYTHONPATH"] = "/opt/env/berdl_genomes/lib/python3.10/site-packages"
+        env.pop("PYTHONPATH", None)
 
         process = subprocess.Popen(
             cmd,
             stdout=None,  # inherit parent stdout
             stderr=None,  # inherit parent stderr
-            text=True,
             env=env
         )
 
@@ -88,20 +87,19 @@ Author: chenry
         cmd = ["/kb/module/scripts/run_pangenome_pipeline.sh", str(input_file), str(selected_member_id)]
 
         env = os.environ.copy()
-        env["PYTHONPATH"] = "/opt/env/berdl_genomes/lib/python3.10/site-packages"
+        env.pop("PYTHONPATH", None)
 
         process = subprocess.Popen(
             cmd,
             stdout=None,  # inherit parent stdout
             stderr=None,  # inherit parent stderr
-            text=True,
             env=env
         )
 
         ret = process.wait()
         if ret != 0:
             raise RuntimeError(
-                f"Genome pipeline failed with exit code {ret}"
+                f"Pan-Genome pipeline failed with exit code {ret}"
             )
 
     #END_CLASS_HEADER
