@@ -27,12 +27,13 @@ from modelseedpy.helpers import get_template
 
 
 class KBDataLakeUtils(KBReadsUtils, KBGenomeUtils, SKANIUtils, MSReconstructionUtils, MSFBAUtils, MSBiochemUtils):
-    def __init__(self, directory, worker_count, parameters, **kwargs):
+    def __init__(self, directory, reference_path, worker_count, parameters, **kwargs):
         super().__init__(
-            name="KBDataLakeUtils",
-            **kwargs
+                name="KBDataLakeUtils",
+                **kwargs
         )
         self.directory = directory
+        self.reference_path = reference_path
         self.worker_count = worker_count
         self.app_parameters = parameters
         self.workspace_name = self.app_parameters['workspace_name']
@@ -683,9 +684,10 @@ class KBDataLakeUtils(KBReadsUtils, KBGenomeUtils, SKANIUtils, MSReconstructionU
         for model_file in model_files:
             model_id = model_file.replace('_model.json', '')
             work_items.append({
-                'model_id': model_id,
-                'model_path': os.path.join(models_dir, model_file),
-                'phenotypes_dir': phenotypes_dir,
+                'genome_id': model_id,
+                'directory': self.directory,
+                'max_phenotypes': 5,
+                'reference_path': self.reference_path
             })
 
         errors = []
@@ -693,7 +695,7 @@ class KBDataLakeUtils(KBReadsUtils, KBGenomeUtils, SKANIUtils, MSReconstructionU
 
         with ProcessPoolExecutor(max_workers=self.worker_count) as executor:
             future_to_model = {
-                executor.submit(_simulate_phenotypes_worker, item): item['model_id']
+                executor.submit(_simulate_phenotypes_worker, item): item['genome_id']
                 for item in work_items
             }
 
@@ -1034,16 +1036,24 @@ def _build_single_model_worker(work_item):
             gene_id = gene.get('gene_id', '')
             if pd.notna(protein) and protein:
                 feature = MSFeature(gene_id, str(protein))
-                # Add SSO annotations from Annotation:SSO column
+                # Parse Annotation:SSO column
+                # Format: SSO:nnnnn:description|rxn1,rxn2;SSO:mmmmm:desc2|rxn3
                 sso_col = gene.get('Annotation:SSO', '')
                 if pd.notna(sso_col) and sso_col:
                     for entry in str(sso_col).split(';'):
-                        # Format is SSO:nnnnn:description|rxn1,rxn2
-                        term_part = entry.split('|')[0].strip()
+                        entry = entry.strip()
+                        if not entry:
+                            continue
+                        term_part = entry.split('|')[0]
                         parts = term_part.split(':')
                         if len(parts) >= 2 and parts[0] == 'SSO':
                             sso_id = parts[0] + ':' + parts[1]
                             feature.add_ontology_term('SSO', sso_id)
+                            # Extract description for classifier
+                            if len(parts) >= 3:
+                                description = ':'.join(parts[2:])
+                                if description:
+                                    feature.add_ontology_term('RAST', description)
                 ms_features.append(feature)
 
         genome.add_features(ms_features)
@@ -1117,7 +1127,6 @@ def _build_single_model_worker(work_item):
             'error': f"{str(e)}\n{traceback.format_exc()}"
         }
 
-
 def _simulate_phenotypes_worker(work_item):
     """
     Worker function for parallel phenotype simulation.
@@ -1132,6 +1141,8 @@ def _simulate_phenotypes_worker(work_item):
     import os
     import sys
     import json
+    import cobra
+    from modelseedpy import MSGrowthPhenotypes, MSATPCorrection,MSGapfill,MSModelUtil
 
     sys.path = [
         "/deps/KBUtilLib/src",
@@ -1140,47 +1151,93 @@ def _simulate_phenotypes_worker(work_item):
     ] + sys.path
 
     try:
-        import cobra
-        from modelseedpy import MSModelUtil
-
-        model_id = work_item['model_id']
-        model_path = work_item['model_path']
-        phenotypes_dir = work_item['phenotypes_dir']
+        genome_id = work_item['genome_id']
+        phenotypes_dir = work_item['directory'] + '/phenotypes/'
+        reference_path = work_item['reference_path']
 
         # Load model
-        model = cobra.io.load_json_model(model_path)
-        MSModelUtil(model)
+        model = cobra.io.load_json_model(work_item['directory'] + '/models/' + genome_id + '_model.json')
+        mdlutl = MSModelUtil(model)
 
-        # Build result structure
-        result = {
-            'model_id': model_id,
-            'success': True,
-            'accuracy': {},
-            'gene_phenotype_reactions': [],
-            'phenotype_gaps': [],
-            'gapfilled_reactions': [],
-            'num_phenotypes': 0,
-        }
+        #Loading the phenotype set from the reference path
+        filename = reference_path + "/phenotypes/full_phenotype_set.json"
+        with open(filename) as f:
+            phenoset_data = json.load(f)
+        #Setting max phenotypes if specified in the work item
+        if "max_phenotypes" in work_item:
+            phenoset_data["phenotypes"] = phenoset_data["phenotypes"][:work_item["max_phenotypes"]]
+        #Instantiating the phenotype set
+        phenoset = MSGrowthPhenotypes.from_dict(phenoset_data)
 
-        # Extract gapfilled reactions info
-        for rxn in model.reactions:
-            if hasattr(rxn, 'annotation'):
-                sbo = rxn.annotation.get('sbo', '')
-                if sbo == 'SBO:0000176':
-                    result['gapfilled_reactions'].append({
-                        'reaction_id': rxn.id,
-                        'reaction_name': rxn.name,
-                        'gpr': rxn.gene_reaction_rule,
-                        'lower_bound': rxn.lower_bound,
-                        'upper_bound': rxn.upper_bound,
-                    })
+        # Create a minimal util instance for this worker
+        class PhenotypeWorkerUtil(MSReconstructionUtils,MSFBAUtils,MSBiochemUtils):
+            def __init__(self):
+                super().__init__(name="PhenotypeWorkerUtil")
+        pheno_util = PhenotypeWorkerUtil()
 
-        # Save results
-        output_path = os.path.join(phenotypes_dir, f'{model_id}_phenosim.json')
-        with open(output_path, 'w') as f:
-            json.dump(result, f, indent=2)
+        # Get template for gapfilling
+        template = pheno_util.get_template(pheno_util.templates["gn"], None)
 
-        return result
+        # Retrieve ATP test conditions from the model
+        atpcorrection = MSATPCorrection(mdlutl)
+        atp_tests = atpcorrection.build_tests()
+
+        # Create gapfiller with ATP test conditions
+        gapfiller = MSGapfill(
+            mdlutl,
+            default_gapfill_templates=[template],
+            default_target='bio1',
+            minimum_obj=0.01,
+            test_conditions=[atp_tests[0]]
+        )
+        pheno_util.set_media(gapfiller.gfmodelutl, "KBaseMedia/Carbon-Pyruvic-Acid")
+
+        # Prefilter gapfilling database with ATP test conditions
+        #print("Prefiltering gapfilling database...")
+        #gapfiller.prefilter()
+        #print("Prefiltering complete")
+
+        # Filter out mass imbalanced (MI) reactions from the gapfill model
+        mi_blocked_count = 0
+        reaction_scores = {}
+        for rxn in gapfiller.gfmodelutl.model.reactions:
+            # Extract the base ModelSEED reaction ID (rxnXXXXX) from the reaction ID
+            if rxn.id not in mdlutl.model.reactions and rxn.id in gapfiller.gfpkgmgr.getpkg("GapfillingPkg").gapfilling_penalties:
+                reaction_scores[rxn.id] = {
+                    "<": 10 * gapfiller.gfpkgmgr.getpkg("GapfillingPkg").gapfilling_penalties[rxn.id].get("reverse", 1),
+                    ">": 10 * gapfiller.gfpkgmgr.getpkg("GapfillingPkg").gapfilling_penalties[rxn.id].get("forward", 1)
+                }
+            ms_rxn_id = pheno_util.reaction_id_to_msid(rxn.id)
+            if ms_rxn_id:
+                ms_rxn = pheno_util.get_reaction_by_id(ms_rxn_id)
+                if ms_rxn and hasattr(ms_rxn, 'status') and ms_rxn.status and "MI" in ms_rxn.status:
+                    reaction_scores[rxn.id] = {"<":1000,">":1000}
+                    # Check if status contains "MI" (mass imbalanced)
+                    if rxn.id not in mdlutl.model.reactions:
+                        #If reaction is not in model, set bounds to 0
+                        rxn.lower_bound = 0
+                        rxn.upper_bound = 0
+                        mi_blocked_count += 1
+
+        # Run simulations with gapfilling for zero-growth phenotypes
+        # Note: test_conditions=None since we already ran prefilter
+        results = phenoset.simulate_phenotypes(
+            mdlutl,
+            add_missing_exchanges=True,
+            gapfill_negatives=True,
+            msgapfill=gapfiller,
+            test_conditions=None,
+            ignore_experimental_data=True,
+            annoont=None,
+            growth_threshold=0.01,
+            #reaction_scores=reaction_scores
+        )
+
+        os.makedirs(phenotypes_dir, exist_ok=True)
+        with open(phenotypes_dir+"/"+genome_id+".json", "w") as f:
+            json.dump(results, f, indent=4, skipkeys=True)
+
+        return {"success": True, "genome_id": genome_id}
 
     except Exception as e:
         import traceback
