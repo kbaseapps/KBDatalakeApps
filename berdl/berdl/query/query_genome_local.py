@@ -8,8 +8,27 @@ class QueryGenomeLocal(QueryGenomeABC):
 
     def __init__(self):
         self.root_reference = Path('/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes')
-        self.ldf_name = pl.scan_parquet(f'{self.root_reference}/block_*/*name*.parquet')
+        #self.ldf_name = pl.scan_parquet(f'{self.root_reference}/block_*/*name*.parquet')
         #self.ldf_name_feature = pl.scan_parquet(f'{self.root_reference}/block_*/name_feature.parquet')
+        # pretend that you did not see this
+        self.ldf_name = pl.scan_parquet(
+            [
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/block_0/name.parquet',
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/block_1/name.parquet',
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/block_2/name.parquet',
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/block_3/name.parquet',
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/block_4/name.parquet',
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/block_5/name.parquet',
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/block_0/feature_name.parquet',
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/block_1/name_feature.parquet',
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/block_2/name_feature.parquet',
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/block_3/name_feature.parquet',
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/block_4/name_feature.parquet',
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/block_5/name_feature.parquet',
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/name.parquet',
+                '/data/reference_data/berdl_db/cdm_genomes/ke-pangenomes/name_feature.parquet',
+            ]
+        )
         self.ldf_ccol_x_protein = pl.scan_parquet(f'{self.root_reference}/block_*/contig_collection_x_protein.parquet')
         self.ldf_ccol_x_feature = pl.scan_parquet(f'{self.root_reference}/block_*/contig_collection_x_feature.parquet')
         self.ldf_contig_x_feature = pl.scan_parquet(f'{self.root_reference}/block_*/contig_x_feature.parquet')
@@ -18,9 +37,10 @@ class QueryGenomeLocal(QueryGenomeABC):
         self.ldf_feature_x_protein = pl.scan_parquet(f'{self.root_reference}/block_*/feature_x_protein.parquet')
 
     def get_cdm_genome_id_by_name(self, name: str):
-        df = self.ldf_name.filter(pl.col("name") == name).collect()
-        if df.height == 1:
-            return df.row(0, named=True)
+        df = self.ldf_name.filter(pl.col("name") == name).select("entity_id").collect()
+        cdm_ids = {x[0] for x in df.rows()}
+        if len(cdm_ids) == 1:
+            return list(cdm_ids)[0]
         return None
 
     def get_genome_features(self, genome_id: str):
