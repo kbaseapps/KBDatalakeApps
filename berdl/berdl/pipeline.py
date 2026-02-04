@@ -46,7 +46,7 @@ def main(input_params):
     for clade in clade_to_user_genomes:
         p = paths.pangenome_dir / clade
         p.mkdir(parents=True, exist_ok=True)
-        LOGGER.info(f"Create pangenome path: {p}")
+        print(f"Create pangenome path: {p}")
         pass
 
 

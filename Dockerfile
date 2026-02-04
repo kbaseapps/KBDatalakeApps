@@ -49,6 +49,11 @@ RUN rustc --version && cargo --version
 WORKDIR /opt/skani
 RUN cargo install --path . --root ~/.cargo
 
+RUN mkdir -p /deps
+RUN echo '0' >/dev/null && cd /deps && \
+	git clone https://github.com/ModelSEED/ModelSEEDDatabase.git && \
+    cd ModelSEEDDatabase && git checkout 3346b71a34bc9d8c5a365b71d5a2959ffbe6c26e
+
 # -----------------------------------------
 # Install KBUtilLib for shared utilities
 # This provides common KBase functionality:
@@ -72,12 +77,7 @@ RUN chmod -R a+rw /kb/module
 RUN /root/.local/bin/uv pip install --python /opt/env/berdl_genomes --no-progress -r /kb/module/berdl/requirements.txt
 
 # @chenry
-RUN mkdir -p /deps
-
 RUN echo '0' >/dev/null && pip install --use-deprecated=legacy-resolver git+https://github.com/cshenry/ModelSEEDpy.git
-RUN echo '0' >/dev/null && cd /deps && \
-	git clone https://github.com/ModelSEED/ModelSEEDDatabase.git && \
-    cd ModelSEEDDatabase && git checkout 3346b71a34bc9d8c5a365b71d5a2959ffbe6c26e
 RUN echo '0' >/dev/null && cd /deps && \
     git clone https://github.com/cshenry/cobrakbase.git && \
     cd cobrakbase && git checkout 68444e46fe3b68482da80798642461af2605e349

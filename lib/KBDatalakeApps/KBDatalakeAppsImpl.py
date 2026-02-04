@@ -8,13 +8,14 @@ from pathlib import Path
 import shutil
 import json
 import subprocess
+import time
 
 from installed_clients.KBaseReportClient import KBaseReport
 from installed_clients.DataFileUtilClient import DataFileUtil
 from installed_clients.kb_baktaClient import kb_bakta
 from installed_clients.kb_psortbClient import kb_psortb
 from installed_clients.kb_kofamClient import kb_kofam
-
+from modelseedpy import MSGenome
 from cobrakbase import KBaseAPI
 
 # Import KBUtilLib utilities for common functionality
@@ -168,9 +169,15 @@ Author: chenry
         for filename_faa in os.listdir(str(path_user_genome)):
             print(filename_faa)
             if filename_faa.endswith('.faa'):
-                from modelseedpy import MSGenome
                 genome = MSGenome.from_fasta(str(path_user_genome / filename_faa))
+                proteins = {f.id:f.seq for f in genome.features if f.seq}
+                print(filename_faa, len(proteins))
                 self.logger.info(f"run annotation for {genome}")
+                start_time = time.perf_counter()
+                raw_annotation_kofam = self.kb_kofam(proteins)
+                end_time = time.perf_counter()
+                print(f"Execution time: {end_time - start_time} seconds")
+                print(raw_annotation_kofam)
 
         # Create KBaseFBA.GenomeDataLakeTables
 
