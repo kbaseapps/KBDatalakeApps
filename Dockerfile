@@ -71,11 +71,11 @@ RUN echo '0' >/dev/null && cd /deps && \
 # Copy module files
 # -----------------------------------------
 ADD requirements.txt /tmp/requirements.txt
-RUN /usr/local/bin/pip install -r /tmp/requirements.txt
 
 COPY ./ /kb/module
 RUN mkdir -p /kb/module/work
 RUN chmod -R a+rw /kb/module
+RUN /usr/local/bin/pip install -r /tmp/requirements.txt
 
 RUN /root/.local/bin/uv pip install --python /opt/env/berdl_genomes --no-progress -r /kb/module/berdl/requirements.txt
 
