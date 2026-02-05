@@ -311,7 +311,7 @@ Author: chenry
 
         with open(self.shared_folder + "/test.faa", 'r') as fh:
             print('example faa:\n', fh.read())
-        self.run_RAST_annotation(self.shared_folder +"/test.faa", self.shared_folder +"/rast.tsv")
+        self.run_RAST_annotation(self.shared_folder +"/test.faa", self.shared_folder +"/rast.tsv", self.rast_client)
 
 
 
