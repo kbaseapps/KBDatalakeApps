@@ -218,10 +218,11 @@ Author: chenry
             proteins.append(sequence)
             ids.append(id)
 
-        print(proteins)
+        annotate_protein_params = {'proteins': proteins}
+        print('annotate_protein_params:', annotate_protein_params)
 
-        #result = rast_client.annotate_proteins({'proteins': proteins})
-        result = rast_client.annotate_proteins(proteins)
+        result = rast_client.annotate_proteins(annotate_protein_params)
+
         functions_list = result.get('functions', [])
         records = []
         for id, functions in zip(ids, functions_list):
