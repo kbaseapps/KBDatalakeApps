@@ -15,7 +15,8 @@ from modelseedpy.core.msgenome import MSGenome, MSFeature
 
 import pandas as pd
 import cobra
-from modelseedpy import AnnotationOntology, MSPackageManager, MSTemplateBuilder, MSMedia, MSModelUtil, MSBuilder, MSATPCorrection, MSGapfill, MSGrowthPhenotype, MSGrowthPhenotypes, ModelSEEDBiochem, MSExpression
+from modelseedpy import AnnotationOntology, MSPackageManager, MSMedia, MSModelUtil, MSBuilder, MSATPCorrection, MSGapfill, MSGrowthPhenotype, MSGrowthPhenotypes, ModelSEEDBiochem, MSExpression
+from modelseedpy.core.mstemplate import MSTemplateBuilder
 
 
 def get_util_instance(kbversion):
