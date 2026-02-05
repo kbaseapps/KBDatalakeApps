@@ -254,7 +254,7 @@ Author: chenry
         self.kb_kofam = kb_kofam(self.callback_url, service_ver='beta')
 
         print('polars thread pool', pl.thread_pool_size())
-        self.rast_client = RAST_SDK(self.callback_url)
+        self.rast_client = RAST_SDK(self.callback_url, service_ver='beta')
         #self.utils = DatalakeAppUtils(callback_url=self.callback_url)
         #END_CONSTRUCTOR
         pass
@@ -348,6 +348,7 @@ Author: chenry
         t_start_time = time.perf_counter()
         for filename_faa in os.listdir(str(path_user_genome)):
             print(filename_faa)
+            """
             if filename_faa.endswith('.faa'):
                 genome = MSGenome.from_fasta(str(path_user_genome / filename_faa))
                 proteins = {f.id:f.seq for f in genome.features if f.seq}
@@ -387,6 +388,7 @@ Author: chenry
                     print(f'received results of type {type(result)} and size {len(result)}')
                 except Exception as ex:
                     print(f'nope {ex}')
+            """
         t_end_time = time.perf_counter()
         print(f"Total Execution time annotation: {t_end_time - t_start_time} seconds")
 
@@ -401,9 +403,9 @@ Author: chenry
                 'pangenome_taxonomy': 'alien',
                 'user_genomes': [],
                 'datalake_genomes': [],
-                'sqllite_tables_handle_ref': 'KBH_248118'
+                'sqllite_tables_handle_ref': 'KBH_248173'
                 # Chris sqlite KBH_248173
-                # random e. coli? assembly KBH_248118s
+                # random e. coli? assembly KBH_248118
             }],
         }
 
