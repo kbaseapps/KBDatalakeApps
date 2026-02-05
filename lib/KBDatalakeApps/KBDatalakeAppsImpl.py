@@ -102,6 +102,10 @@ Author: chenry
                 f"Pan-Genome pipeline failed with exit code {ret}"
             )
 
+    @staticmethod
+    def run_rast(args):
+        pass
+
     #END_CLASS_HEADER
 
     # config contains contents of config file in a hash or None if it couldn't
