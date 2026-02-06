@@ -309,6 +309,7 @@ Author: chenry
                 else:
                     print('skip pangenome')
 
+        tasks_pangeome = []
         path_pangenome = Path(self.shared_folder) / "pangenome"
         path_pangenome.mkdir(parents=True, exist_ok=True)
         for folder_pangenome in os.listdir(str(path_pangenome)):
@@ -318,7 +319,9 @@ Author: chenry
                 if path_pangenome_members.exists():
                     for _f in os.listdir(str(path_pangenome_members)):
                         if _f.endswith('.faa'):
-                            executor.run_task(task_rast, str(path_pangenome_members / _f), self.rast_client)
+                            tasks_pangeome.append(executor.run_task(task_rast,
+                                                                    str(path_pangenome_members / _f),
+                                                                    self.rast_client))
 
 
                     """
@@ -410,6 +413,14 @@ Author: chenry
         }
 
         # Done with all tasks
+        print('Task barrier')
+        for t in tasks_pangeome:
+            print(f'await for {t.args} {t.status}')
+            t.wait()
+        for t in tasks_pangeome:
+            print(t.status)
+            print(t.result)
+            print(t.traceback)
 
         executor.shutdown()
         print_path(Path(self.shared_folder).resolve())
