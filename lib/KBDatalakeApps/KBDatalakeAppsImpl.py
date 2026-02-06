@@ -348,7 +348,8 @@ Author: chenry
 
                 # Run model reconstruction
                 model_output_path = path_user_genome / f'{info[1]}_model'
-                run_model_reconstruction(str(genome_tsv_path), str(model_output_path))
+                classifier_dir = Path('/kb/module/data')
+                run_model_reconstruction(str(genome_tsv_path), str(model_output_path), str(classifier_dir))
 
                 # Print head of model output for testing
                 model_data_file = str(model_output_path) + "_data.json"

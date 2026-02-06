@@ -721,7 +721,8 @@ def run_phenotype_simulation(model_filename,output_filename,max_phenotypes=5):
 
     return {"success": True, "genome_id": genome_id}
 
-def run_model_reconstruction(input_filename,output_filename):
+
+def run_model_reconstruction(input_filename, output_filename, classifier_dir):
     worker_util = MSReconstructionUtils(kbversion=global_kbversion)
 
     # Clear MSModelUtil cache for this process
@@ -794,7 +795,7 @@ def run_model_reconstruction(input_filename,output_filename):
     genome.add_features(ms_features)
 
     # Load classifier
-    genome_classifier = worker_util.get_classifier()
+    genome_classifier = worker_util.get_classifier(classifier_dir)
 
     # Build the model
     current_output, mdlutl = worker_util.build_metabolic_model(
