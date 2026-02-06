@@ -30,7 +30,7 @@ except ImportError:
 
 global_kbversion = "prod"
 
-class KBDataLakeUtils(KBAnnotationUtils, KBReadsUtils, KBGenomeUtils, MSReconstructionUtils, MSFBAUtils, MSBiochemUtils):
+class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
     def __init__(self,kbversion,**kwargs):
         super().__init__(
                 name="KBDataLakeUtils",
