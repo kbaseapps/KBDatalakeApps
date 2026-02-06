@@ -283,10 +283,10 @@ Author: chenry
                     print('skip_annotation')
                 else:
                     tasks.append(executor.run_task(task_rast,
-                                                   str(path_user_genome / filename_faa),
+                                                   path_user_genome / filename_faa,
                                                    self.rast_client))
                     tasks.append(executor.run_task(task_kofam,
-                                                   str(path_user_genome / filename_faa),
+                                                   path_user_genome / filename_faa,
                                                    self.kb_kofam))
 
         print('Task set barrier')
