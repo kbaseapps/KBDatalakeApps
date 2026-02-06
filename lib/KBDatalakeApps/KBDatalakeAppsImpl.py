@@ -201,6 +201,7 @@ Author: chenry
         self.kb_kofam = kb_kofam(self.callback_url, service_ver='beta')
         self.rast_client = RAST_SDK(self.callback_url, service_ver='beta')
         self.util = KBDataLakeUtils(kbversion="appdev", kb_version="appdev")
+        self.util.set_token(get_berdl_token(),namespace="berdl")
         print('polars thread pool', pl.thread_pool_size())
         #END_CONSTRUCTOR
         pass
