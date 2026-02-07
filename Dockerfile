@@ -77,6 +77,12 @@ RUN pip install --upgrade pip
 # -----------------------------------------
 # Copy module files
 # -----------------------------------------
+
+RUN wget -O /tmp/mmseqs_avx2.tar.gz -q https://mmseqs.com/latest/mmseqs-linux-avx2.tar.gz
+RUN mkdir -p /opt/mmseqs_avx
+RUN tar -xvf /tmp/mmseqs_avx2.tar.gz -C /opt/mmseqs_avx
+ENV PATH=/opt/mmseqs_avx/mmseqs/bin:$PATH
+
 ADD requirements.txt /tmp/requirements.txt
 
 COPY ./ /kb/module

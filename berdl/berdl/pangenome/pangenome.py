@@ -1,3 +1,5 @@
+import subprocess
+from pathlib import Path
 from modelseedpy.core.msgenome import MSFeature, MSGenome
 from berdl.pangenome.paths_pangenome import PathsPangenome
 from berdl.hash_seq import ProteinSequence
@@ -9,6 +11,39 @@ class BERDLPangenome:
         self.pg = query_pg  # pan-genome query api
         self.query_g = query_g
         self.paths = paths.ensure()
+
+    def mmseqs2(self, filename_faa: Path):
+        work_dir = self.paths.out_mmseqs_dir
+        log_stdout = work_dir / 'log.out'
+        log_stderr = work_dir / 'log.err'
+        cmd = [
+            'mmseqs', 'easy-cluster',
+            '--min-seq-id', '0.0',
+            '--cov-mode', '0',
+            '-c', '0.80',
+            str(filename_faa.resolve()),
+            'tmp',
+        ]
+        with open(log_stdout, 'w') as fh_out, open(log_stderr, 'w') as fh_err:
+            process = subprocess.Popen(
+                cmd,
+                cwd=str(work_dir),
+                stdout=fh_out,  # inherit parent stdout
+                stderr=fh_err,  # inherit parent stderr
+            )
+            ret = process.wait()
+
+        if ret != 0:
+            print('mmseqs failed exec')
+            print('out')
+            with open(log_stdout) as fh:
+                print(fh.read())
+            print('err')
+            with open(log_stderr) as fh:
+                print(fh.read())
+            raise RuntimeError(
+                f"mmseqs2 failed with exit code {ret}"
+            )
 
     def run(self, selected_clade_member_id):
         clade_id = self.pg.get_member_representative(selected_clade_member_id)
@@ -77,3 +112,4 @@ class BERDLPangenome:
         genome_master_faa = MSGenome()
         genome_master_faa.add_features(list(u_proteins.values()))
         genome_master_faa.to_fasta(str(self.paths.out_master_faa))
+

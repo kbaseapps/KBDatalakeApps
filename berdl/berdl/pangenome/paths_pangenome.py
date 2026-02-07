@@ -34,7 +34,7 @@ class PathsPangenome:
                            "out_master_faa_pangenome_members",
                            self.root / "master_faa_pangenome_members.faa")
         object.__setattr__(self, "out_master_faa", self.root / "master_faa.faa")
-        object.__setattr__(self, "out_mmseqs_dir", self.root / "mmseqs2")
+        object.__setattr__(self, "out_mmseqs_dir", self.root / "master_mmseqs2")
 
         object.__setattr__(
             self, "out_pangenome_library",
@@ -62,6 +62,7 @@ class PathsPangenome:
         for p in [
             self.genome_dir,
             self.assembly_dir,
+            self.out_mmseqs_dir
         ]:
             p.mkdir(parents=True, exist_ok=True)
         return self
