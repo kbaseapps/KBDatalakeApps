@@ -23,7 +23,7 @@ class BERDLPangenome:
             '-c', '0.80',
             str(filename_faa.resolve()),
             filename_faa.name[:-4],
-            'tmp',
+            'mmseqs2_tmp',
         ]
         print(f'mmseqs2 run {" ".join(cmd)}')
         with open(log_stdout, 'w') as fh_out, open(log_stderr, 'w') as fh_err:

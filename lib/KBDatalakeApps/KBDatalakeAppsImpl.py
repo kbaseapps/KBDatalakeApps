@@ -52,6 +52,9 @@ def print_path(root: Path):
 
 
 def _print_tree(root: Path, prefix: str):
+    # skip folder mmseqs2_tmp
+    if root.name == 'mmseqs2_tmp':
+        return
     entries = sorted(root.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
     for i, path in enumerate(entries):
         is_last = i == len(entries) - 1
