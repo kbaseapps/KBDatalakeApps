@@ -6,10 +6,10 @@ class QueryGenomeABC(ABC):
 
     @abstractmethod
     def get_genome_features(self, genome_id: str) -> Any:
-        """Return all gene clusters for a given clade."""
+        """Return all genome features."""
         raise NotImplementedError
 
     @abstractmethod
     def get_genome_contigs(self, genome_id: str) -> Any:
-        """Return all gene clusters for a given clade."""
+        """Return all contigs."""
         raise NotImplementedError

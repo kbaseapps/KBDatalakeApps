@@ -1,7 +1,7 @@
 import json
 import os
 from modelseedpy import MSGenome
-#from genome_paths import GenomePaths
+from berdl.genome_paths import GenomePaths
 import pyarrow as pa
 import pandas as pd
 
@@ -50,7 +50,7 @@ def _read_search_output_as_parquet(filename, sep='\t'):
 
 class BERDLPreGenome:
 
-    def __init__(self, kbase, paths):
+    def __init__(self, kbase, paths: GenomePaths):
         self.kbase = kbase
         self.paths = paths.ensure()
 
@@ -187,5 +187,12 @@ class BERDLPreGenome:
 
         ani_fitness = self.ani_translate_fitness(df_ani_fitness, assembly_to_user_id)
         ani_phenotype = self.ani_translate_phenotype(df_ani_phenotype, assembly_to_user_id)
+
+        with open(self.paths.ani_kepangenomes_json, 'w') as fh:
+            fh.write(json.dumps(ani_clades))
+        with open(self.paths.ani_fitness_json, 'w') as fh:
+            fh.write(json.dumps(ani_fitness))
+        with open(self.paths.ani_phenotypes_json, 'w') as fh:
+            fh.write(json.dumps(ani_phenotype))
 
         return user_genome_files, user_to_clade, ani_clades, ani_fitness, ani_phenotype

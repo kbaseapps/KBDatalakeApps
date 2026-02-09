@@ -117,4 +117,8 @@ class BERDLPangenome:
         genome_master_faa.add_features(list(u_proteins.values()))
         genome_master_faa.to_fasta(str(self.paths.out_master_faa))
 
+        # read clusters
+
+        # map user_genome_to_pangenome
+
         self.mmseqs2(self.paths.out_master_faa)

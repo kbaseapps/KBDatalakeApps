@@ -20,6 +20,9 @@ class GenomePaths:
     ani_kepangenomes_out: Path = None
     ani_fitness_out: Path = None
     ani_phenotypes_out: Path = None
+    ani_kepangenomes_json: Path = None
+    ani_fitness_json: Path = None
+    ani_phenotypes_json: Path = None
 
     skani_fast_kepangenome_db: Path = None
     skani_fast_fitness_db: Path = None
@@ -54,6 +57,10 @@ class GenomePaths:
             self, "json_user_to_clade",
             self.pangenome_dir / "user_to_clade.json"
         )
+
+        object.__setattr__(self, "ani_kepangenomes_json", self.ani_dir / "kepangenomes_fast.json")
+        object.__setattr__(self, "ani_fitness_json", self.ani_dir / "fitness_fast.json")
+        object.__setattr__(self, "skani_fast_phenotypes_db", self.ani_dir / "phenotypes_fast.json")
 
         # reference data (derived from configurable root)
         skani_root = self.reference_root / "skani_library"
