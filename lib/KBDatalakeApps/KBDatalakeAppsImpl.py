@@ -369,7 +369,7 @@ Author: chenry
                 # Run model reconstruction
                 model_output_path = path_user_genome / f'{info[1]}_model'
                 classifier_dir = Path('/kb/module/data')
-                run_model_reconstruction(str(genome_tsv_path), str(model_output_path), str(classifier_dir),kbversion=self.util.kbversion)
+                run_model_reconstruction(str(genome_tsv_path), str(model_output_path), str(classifier_dir),kbversion=self.util.kb_version)
 
                 # Print head of model output for testing
                 model_data_file = str(model_output_path) + "_data.json"
@@ -382,7 +382,7 @@ Author: chenry
                 # Run phenotype simulation
                 phenotype_output_path = path_user_genome / f'{info[1]}_phenotypes.json'
                 cobra_model_path = str(model_output_path) + "_cobra.json"
-                run_phenotype_simulation(cobra_model_path, str(phenotype_output_path),max_phenotypes=5,kbversion=self.util.kbversion)
+                run_phenotype_simulation(cobra_model_path, str(phenotype_output_path),max_phenotypes=5,kbversion=self.util.kb_version)
 
                 # Print head of phenotype output for testing
                 print(f"=== Head of phenotype results: {phenotype_output_path} ===")
