@@ -1,8 +1,12 @@
 import subprocess
+import polars as pl
 from pathlib import Path
 from modelseedpy.core.msgenome import MSFeature, MSGenome
 from berdl.pangenome.paths_pangenome import PathsPangenome
 from berdl.hash_seq import ProteinSequence
+
+
+_STRIP_FNA_ = len('/global/cfs/cdirs/kbase/jungbluth/Projects/Project_Pangenome_GTDB/GTDB_v214_download/ftp.ncbi.nlm.nih.gov/')
 
 
 class BERDLPangenome:
@@ -11,6 +15,31 @@ class BERDLPangenome:
         self.pg = query_pg  # pan-genome query api
         self.query_g = query_g
         self.paths = paths.ensure()
+
+    def f(self):
+        pl.
+        with open(self.paths.out_members_tsv, 'r') as fh:
+
+        data = {
+            'genome_id': [],
+            'feature_id': [],
+            'cluster_id': [],
+            'protein_hash': [],
+            'mmseqs_rep_hash': [],
+        }
+        for member_id in {r[0] for r in clade_members.select("genome_id").rows()}:
+            genome = MSGenome.from_fasta(str(paths.genome_dir / f'{member_id}.faa'))
+            for feature in genome.features:
+                if feature.seq:
+                    protein = ProteinSequence(feature.seq)
+                    protein_h = protein.hash_value
+                    data['genome_id'].append(member_id)
+                    data['feature_id'].append(feature.id)
+                    data['cluster_id'].append(d_gene_to_cluster[feature.id])
+                    data['protein_hash'].append(protein_h)
+                    data['mmseqs_rep_hash'].append(m_to_r[protein_h])
+        df = pl.DataFrame(data)
+        df.write_parquet(paths.root / 'pangenome_cluster_with_mmseqs.parquet')
 
     def mmseqs2(self, filename_faa: Path):
         work_dir = self.paths.out_mmseqs_dir
@@ -53,6 +82,9 @@ class BERDLPangenome:
         clade_id = self.pg.get_member_representative(selected_clade_member_id)
         print('clade_id', clade_id)
         clade_members = self.pg.get_clade_members(clade_id)
+
+        clade_members.write_csv(self.paths.out_members_tsv, separator='\t')
+
         clade_gene_clusters = self.pg.get_clade_gene_clusters(clade_id)
         clade_cluster_ids = set(clade_gene_clusters['gene_cluster_id'])
         df_gene_genecluster = self.pg.get_clusters_members(clade_cluster_ids)
@@ -70,6 +102,14 @@ class BERDLPangenome:
             genome_features = self.query_g.get_genome_features(member_id)
             genome_features.to_fasta(self.paths.genome_dir / f'{member_id}.faa')
             members[member_id] = genome_features
+
+            # write contigs
+            # FIXME: cant fetch from parquet use temp ref data for contigs
+            path_ref_contig = Path('/data/reference_data/contigs')
+            file_contigs = path_ref_contig / row['fna_file_path_nersc'][_STRIP_FNA_:]
+            if file_contigs.exists():
+                genome_contigs = MSGenome.from_fasta(str(file_contigs))
+                genome_contigs.to_fasta(self.paths.assembly_dir / f'{member_id}.fna')
 
         # build master protein user_genome + pangenome
 

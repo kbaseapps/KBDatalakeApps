@@ -24,6 +24,8 @@ class PathsPangenome:
     out_master_faa_pangenome_members: Path = None
     out_master_faa: Path = None
     out_mmseqs_dir: Path = None
+    out_sqlite3_file: Path = None
+    out_members_tsv: Path = None
 
     def __post_init__(self):
         # local dirs
@@ -35,6 +37,8 @@ class PathsPangenome:
                            self.root / "master_faa_pangenome_members.faa")
         object.__setattr__(self, "out_master_faa", self.root / "master_faa.faa")
         object.__setattr__(self, "out_mmseqs_dir", self.root / "master_mmseqs2")
+        object.__setattr__(self, "out_sqlite3_file", self.root / "db.sqlite")
+        object.__setattr__(self, "out_members_tsv", self.root / "members.tsv")
 
         object.__setattr__(
             self, "out_pangenome_library",
