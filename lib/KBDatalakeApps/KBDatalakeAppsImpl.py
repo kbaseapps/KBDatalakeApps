@@ -399,7 +399,15 @@ Author: chenry
         #t_end_time = time.perf_counter()
         #print(f"Total Execution time annotation: {t_end_time - t_start_time} seconds")
 
-
+        # Zip up shared_folder contents and upload to Shock for downloadable report link
+        shared_folder_path = Path(self.shared_folder)
+        self.logger.info(f"Zipping shared folder contents: {shared_folder_path}")
+        archive_shock_info = self.dfu.file_to_shock({
+            'file_path': str(shared_folder_path),
+            'pack': 'zip'
+        })
+        archive_shock_id = archive_shock_info['shock_id']
+        self.logger.info(f"Uploaded shared folder archive to Shock: {archive_shock_id}")
 
         # Create KBaseFBA.GenomeDataLakeTables
 
@@ -472,6 +480,13 @@ Author: chenry
             'description': 'BERDL Table Viewer'
         }]
 
+        file_links = [{
+            'shock_id': archive_shock_id,
+            'name': 'pipeline_output.zip',
+            'label': 'Pipeline Output',
+            'description': 'Zipped archive of all pipeline output files'
+        }]
+
         report_params = {
             'message': 'message_in_app hi!',
             'warnings': ['example warning'],
@@ -479,6 +494,7 @@ Author: chenry
             'objects_created': [],
             'html_links': html_report,
             'direct_html_link_index': 0,
+            'file_links': file_links,
             # 'html_window_height': int(params['report_height']),
             'html_window_height': 800,
         }

@@ -228,131 +228,6 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
         except Exception as e:
             print(f"Error in BERDL pangenome query: {e}")
 
-    def pipeline_run_ontology_term_kberdl_query(self, filename_datalake_db: str):
-        """
-        Pipeline step for running ontology term query against KBase BERDL.
-
-        Extracts ontology term IDs (GO, EC, KEGG, COG, PFAM, SO) from genome
-        data and enriches them with labels and definitions from BERDL API.
-
-        Input sources (checked in order):
-        1. SQLite database (berdl_tables.db) - genome_features table
-        2. TSV files in genomes/ directory
-
-        Results are saved to:
-        - self.directory/ontology_terms.tsv (all enriched terms)
-        - Adds ontology_terms table to SQLite database if it exists
-
-        Author: Jose P. Faria (jplfaria@gmail.com)
-        """
-        if OntologyEnrichment is None:
-            print("Warning: BERDL ontology module not available, skipping")
-            return
-
-        # Get token from environment or app parameters
-        # FIXME: wrong token this is KBase auth token not for BERDL. (Please check if this works)
-        token = self.get_token(namespace="berdl")
-        if not token:
-            print("Warning: No BERDL token available, skipping ontology enrichment")
-            return
-
-        # Try to load genome data from multiple sources
-        genome_dataframes = []
-        data_source = None
-
-        # Source 1: SQLite database
-        if os.path.exists(filename_datalake_db):
-            try:
-                conn = sqlite3.connect(str(filename_datalake_db))
-                # Check if genome_features table exists
-                cursor = conn.cursor()
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='genome_features'")
-                if cursor.fetchone():
-                    genome_df = pd.read_sql_query("SELECT * FROM genome_features", conn)
-                    if not genome_df.empty:
-                        genome_dataframes.append(genome_df)
-                        data_source = "SQLite database"
-                        print(f"  Loading genome data from SQLite: {len(genome_df)} features")
-                conn.close()
-            except Exception as e:
-                print(f"  Warning: Could not read from SQLite: {e}")
-
-        # Source 2: TSV files in genomes/ directory
-        if not genome_dataframes:
-            genomes_dir = os.path.join(self.directory, "genomes")
-            if os.path.exists(genomes_dir):
-                genome_files = [f for f in os.listdir(genomes_dir) if f.endswith('.tsv')]
-                for genome_file in genome_files:
-                    filepath = os.path.join(genomes_dir, genome_file)
-                    try:
-                        genome_df = pd.read_csv(filepath, sep='\t')
-                        genome_dataframes.append(genome_df)
-                    except Exception as e:
-                        print(f"  Warning: Could not read {genome_file}: {e}")
-                if genome_dataframes:
-                    data_source = f"TSV files ({len(genome_dataframes)} genomes)"
-
-        if not genome_dataframes:
-            print("Warning: No genome data found (checked SQLite and TSV files), skipping")
-            return
-
-        print(f"Running ontology term enrichment from {data_source}...")
-
-        try:
-            # Initialize enrichment client
-            # FIXME: which token BERDL or KBase ?
-            enricher = OntologyEnrichment(token=token)
-
-            # Collect all unique ontology terms across all genomes
-            all_terms = set()
-
-            for genome_df in genome_dataframes:
-                try:
-                    terms_by_type = enricher.extract_ontology_terms(genome_df)
-                    for terms in terms_by_type.values():
-                        all_terms.update(terms)
-                except Exception as e:
-                    print(f"  Warning: Could not extract terms from dataframe: {e}")
-
-            if not all_terms:
-                print("  No ontology terms found in genomes")
-                return
-
-            print(f"  Found {len(all_terms)} unique ontology terms")
-
-            # Enrich all terms
-            enriched_df = enricher.enrich_terms(list(all_terms))
-
-            # Save enriched terms to TSV
-            output_path = os.path.join(self.directory, "ontology_terms.tsv")
-            enriched_df.to_csv(output_path, sep='\t', index=False)
-            print(f"  Saved {len(enriched_df)} enriched terms to {output_path}")
-
-            # Also save to SQLite database if it exists
-            if os.path.exists(filename_datalake_db):
-                try:
-                    conn = sqlite3.connect(str(filename_datalake_db))
-                    enriched_df.to_sql('ontology_terms', conn, if_exists='replace', index=False)
-                    conn.close()
-                    print(f"  Added 'ontology_terms' table to SQLite database")
-                except Exception as e:
-                    print(f"  Warning: Could not save to SQLite: {e}")
-
-            # Summary by ontology type
-            if not enriched_df.empty:
-                print("\n  Enrichment summary:")
-                for prefix in ['GO:', 'EC:', 'KEGG:', 'COG:', 'PFAM:', 'SO:']:
-                    count = len(enriched_df[enriched_df['identifier'].str.startswith(prefix)])
-                    if count > 0:
-                        with_label = len(enriched_df[(enriched_df['identifier'].str.startswith(prefix)) &
-                                                      (enriched_df['label'] != '')])
-                        print(f"    {prefix[:-1]}: {count} terms, {with_label} with labels")
-
-            print("Ontology term enrichment complete")
-
-        except Exception as e:
-            print(f"Error in ontology enrichment: {e}")
-
     def pipeline_save_annotated_genomes(self):
         """
         Pipeline step for saving annotated genomes back to KBase.
@@ -661,7 +536,8 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
 
         print(f"Built phenotype tables in {phenotypes_dir}")
 
-    def build_model_tables(self, models_dir):
+    def build_model_tables(self, database_path, model_path):
+        #TODO: Claude - write code here that loads the model data from model_path (e.g.)
         pass
 
     def pipeline_build_sqllite_db(self):
@@ -1262,40 +1138,38 @@ def run_model_reconstruction(input_filename, output_filename, classifier_dir,kbv
     # Save to JSON file
     with open(output_filename + "_data.json", 'w') as f:
         json.dump(output_data, f, indent=2)
+
 def generate_ontology_tables(
-    clade_folder: str,
-    reference_data_path: str = "/data/reference_data",
-    genome_features_table: str = "genome_features",
-    output_folder_name: str = "ontology_data"
+    input_database: str,
+    reference_data_path: str = "/data/",
+    source_tables: list = ["genome_features"],
 ) -> bool:
     """
-    Generate ontology tables for a clade folder.
+    Generate ontology tables from one or more database tables.
 
-    This function reads genome features from a db.sqlite file, maps RAST
+    Reads features from one or more tables in a SQLite database, maps RAST
     annotations to SEED roles, extracts EC numbers, enriches all ontology
-    terms, and saves three output tables.
+    terms, and writes results back to the same database.
 
     Args:
-        clade_folder: Path to the clade folder (e.g., /path/to/pangenome/s__Escherichia_coli)
-                      Must contain a db.sqlite file with genome_features table.
+        input_database: Path to the SQLite database file.
         reference_data_path: Path to directory containing reference files:
-                            - seed.json (RAST → seed.role mapping)
+                            - seed.json (RAST -> seed.role mapping)
                             - statements.parquet (labels, definitions, relationships)
                             - kegg_ko_definitions.parquet
                             - cog_definitions.parquet
-                            Default: /data/reference_data
-        genome_features_table: Name of the table in db.sqlite to read features from.
-                              Default: genome_features
-        output_folder_name: Name of the output folder to create.
-                           Default: ontology_data
+                            Default: /data/
+        source_tables: List of table names in the database to read features from
+                       and harvest ontology terms. Each table is processed
+                       independently. Default: ["genome_features"]
 
     Returns:
         True on success, False on failure.
 
-    Output files (in clade_folder/output_folder_name/):
-        - ontology_terms.tsv: All ontology terms with labels and definitions
-        - ontology_definition.tsv: Ontology prefix definitions
-        - ontology_relationships.tsv: Term relationships (is_a, enables_reaction)
+    Output tables (written to input_database):
+        - ontology_terms: All ontology terms with labels and definitions
+        - ontology_definitions: Ontology prefix definitions
+        - ontology_relationships: Term relationships (is_a, enables_reaction)
     """
     import sqlite3
     import re
@@ -1303,47 +1177,25 @@ def generate_ontology_tables(
     from pathlib import Path
     import pyarrow.parquet as pq
 
-    clade_path = Path(clade_folder)
-    db_path = clade_path / "db.sqlite"
-    output_path = clade_path / output_folder_name
+    db_path = Path(input_database)
 
     # Check if db.sqlite exists
     if not db_path.exists():
-        print(f"Warning: db.sqlite not found in {clade_folder}, skipping ontology generation")
+        print(f"Warning: db.sqlite not found in {input_database}, skipping ontology generation")
         return False
 
     print(f"\n{'='*70}")
-    print(f"Generating ontology tables for: {clade_folder}")
+    print(f"Generating ontology tables for: {input_database}")
     print(f"{'='*70}")
 
     try:
         # =====================================================================
-        # STEP 1: Load genome features from SQLite
+        # STEP 1: Initialize term collection and load RAST mapper
         # =====================================================================
-        print(f"\n1. Loading genome features from {db_path}...")
-        conn = sqlite3.connect(str(db_path))
-
-        # Check if table exists
-        cursor = conn.cursor()
-        cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{genome_features_table}'")
-        if not cursor.fetchone():
-            print(f"   Warning: Table '{genome_features_table}' not found in db.sqlite")
-            conn.close()
-            return False
-
-        genome_df = pd.read_sql_query(f"SELECT * FROM {genome_features_table}", conn)
-        conn.close()
-        print(f"   Loaded {len(genome_df)} features")
-        print(f"   Columns: {list(genome_df.columns)[:10]}...")
-
-        # =====================================================================
-        # STEP 2: Initialize RASTSeedMapper for RAST → seed.role mapping
-        # =====================================================================
-        print("\n2. Loading RAST → seed.role mapper...")
-
-        ref_path = Path(reference_data_path)
+        ref_path = Path(reference_data_path) / "berdl_db/run_20250819_020438/parquet_files"
         seed_json_path = ref_path / "seed.json"
 
+        print("\n1. Loading RAST → seed.role mapper...")
         mapper = None
         if seed_json_path.exists():
             mapper = RASTSeedMapper(str(seed_json_path))
@@ -1351,17 +1203,14 @@ def generate_ontology_tables(
             print(f"   Warning: seed.json not found at {seed_json_path}")
             print(f"   RAST → seed.role mapping will be skipped")
 
-        # =====================================================================
-        # STEP 3: Extract ontology terms from genome features
-        # =====================================================================
-        print("\n3. Extracting ontology terms...")
-
         terms_by_type = {
             'GO': set(), 'EC': set(), 'KEGG': set(),
             'COG': set(), 'PFAM': set(), 'SO': set(), 'seed.role': set()
         }
+        rast_functions = set()
+        seed_role_to_label = {}
 
-        # Patterns for extracting existing term IDs from annotation columns
+        # Patterns for extracting ontology term IDs from cell values
         patterns = {
             'GO': re.compile(r'GO:\d+'),
             'EC': re.compile(r'EC:[\d\.-]+'),
@@ -1371,66 +1220,82 @@ def generate_ontology_tables(
             'SO': re.compile(r'SO:\d+'),
             'seed.role': re.compile(r'seed\.role:\d+'),
         }
-
-        # Pattern for extracting EC from RAST function strings like "enzyme (EC 1.1.1.1)"
         ec_in_rast_pattern = re.compile(r'\(EC[:\s]*([\d\.-]+)\)')
-
-        # Track RAST functions for seed.role mapping
-        rast_functions = set()
-        seed_role_to_label = {}  # seed.role ID -> RAST function label
-
-        # Find the RAST function column
-        rast_col = None
-        for col in ['rast_function', 'rast_functions', 'functions', 'Annotation:SSO']:
-            if col in genome_df.columns:
-                rast_col = col
-                break
-
-        if rast_col:
-            print(f"   Using RAST function column: {rast_col}")
-
-        # Extract terms from all columns
-        for col in genome_df.columns:
-            for _, row in genome_df.iterrows():
-                value = str(row.get(col, ''))
-                if not value or value == 'nan':
-                    continue
-
-                # Extract existing ontology term IDs
-                for ont_type, pattern in patterns.items():
-                    matches = pattern.findall(value)
-                    for match in matches:
-                        # Normalize prefixes
-                        if ont_type == 'KEGG' and not match.startswith('KEGG:'):
-                            match = f'KEGG:{match}'
-                        elif ont_type == 'PFAM' and not match.startswith('PFAM:'):
-                            match = f'PFAM:{match}'
-                        terms_by_type[ont_type].add(match)
-
-                # Extract EC from RAST function strings
-                if col == rast_col:
-                    ec_matches = ec_in_rast_pattern.findall(value)
-                    for ec_num in ec_matches:
-                        terms_by_type['EC'].add(f'EC:{ec_num}')
-
-                    # Collect RAST functions for seed.role mapping
-                    if value and value != 'nan':
-                        # Split multi-function annotations
-                        for separator in [' / ', ' @ ', '; ']:
-                            if separator in value:
-                                parts = value.split(separator)
-                                for part in parts:
-                                    part = part.strip()
-                                    if part:
-                                        rast_functions.add(part)
-                        if not any(sep in value for sep in [' / ', ' @ ', '; ']):
-                            rast_functions.add(value)
+        rast_col_candidates = ['rast_function', 'rast_functions', 'functions', 'Annotation:SSO']
 
         # =====================================================================
-        # STEP 4: Map RAST functions to seed.role IDs
+        # STEP 2: Load each table and harvest ontology terms
+        # =====================================================================
+        print(f"\n2. Extracting ontology terms from tables: {source_tables}")
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        tables_read = 0
+
+        for table_name in source_tables:
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+            if not cursor.fetchone():
+                print(f"   Warning: Table '{table_name}' not found in database, skipping")
+                continue
+
+            table_df = pd.read_sql_query(f"SELECT * FROM [{table_name}]", conn)
+            tables_read += 1
+            print(f"   Processing '{table_name}': {len(table_df)} rows, columns: {list(table_df.columns)[:10]}...")
+
+            # Detect RAST function column for this table
+            rast_col = None
+            for candidate in rast_col_candidates:
+                if candidate in table_df.columns:
+                    rast_col = candidate
+                    break
+            if rast_col:
+                print(f"     RAST function column: {rast_col}")
+
+            # Extract terms from every column of every row
+            for col in table_df.columns:
+                for _, row in table_df.iterrows():
+                    value = str(row.get(col, ''))
+                    if not value or value == 'nan':
+                        continue
+
+                    # Match ontology term IDs
+                    for ont_type, pattern in patterns.items():
+                        matches = pattern.findall(value)
+                        for match in matches:
+                            if ont_type == 'KEGG' and not match.startswith('KEGG:'):
+                                match = f'KEGG:{match}'
+                            elif ont_type == 'PFAM' and not match.startswith('PFAM:'):
+                                match = f'PFAM:{match}'
+                            terms_by_type[ont_type].add(match)
+
+                    # Extract EC from RAST function strings
+                    if col == rast_col:
+                        ec_matches = ec_in_rast_pattern.findall(value)
+                        for ec_num in ec_matches:
+                            terms_by_type['EC'].add(f'EC:{ec_num}')
+
+                        # Collect RAST functions for seed.role mapping
+                        if value and value != 'nan':
+                            for separator in [' / ', ' @ ', '; ']:
+                                if separator in value:
+                                    parts = value.split(separator)
+                                    for part in parts:
+                                        part = part.strip()
+                                        if part:
+                                            rast_functions.add(part)
+                            if not any(sep in value for sep in [' / ', ' @ ', '; ']):
+                                rast_functions.add(value)
+
+        conn.close()
+
+        if tables_read == 0:
+            print(f"   Error: No valid tables found in database")
+            return False
+
+        # =====================================================================
+        # STEP 3: Map RAST functions to seed.role IDs
         # =====================================================================
         if mapper and rast_functions:
-            print(f"\n4. Mapping {len(rast_functions)} RAST functions to seed.role IDs...")
+            print(f"\n3. Mapping {len(rast_functions)} RAST functions to seed.role IDs...")
 
             mapped_count = 0
             for rast_func in rast_functions:
@@ -1444,7 +1309,7 @@ def generate_ontology_tables(
 
             print(f"   Mapped {mapped_count} RAST functions to {len(terms_by_type['seed.role'])} unique seed.role IDs")
         else:
-            print("\n4. Skipping RAST → seed.role mapping (no mapper or no RAST functions)")
+            print("\n3. Skipping RAST → seed.role mapping (no mapper or no RAST functions)")
 
         # Summary of extracted terms
         total_terms = sum(len(terms) for terms in terms_by_type.values())
@@ -1454,20 +1319,23 @@ def generate_ontology_tables(
                 print(f"     {ont_type}: {len(terms)}")
 
         if total_terms == 0:
-            print("   Warning: No ontology terms found in genome features")
-            os.makedirs(output_path, exist_ok=True)
-            pd.DataFrame(columns=['ontology_prefix', 'identifier', 'label', 'definition']).to_csv(
-                output_path / 'ontology_terms.tsv', sep='\t', index=False)
-            pd.DataFrame(columns=['ontology_prefix', 'definition']).to_csv(
-                output_path / 'ontology_definition.tsv', sep='\t', index=False)
-            pd.DataFrame(columns=['subject', 'predicate', 'object']).to_csv(
-                output_path / 'ontology_relationships.tsv', sep='\t', index=False)
+            print("   Warning: No ontology terms found, writing empty tables")
+            conn = sqlite3.connect(str(db_path))
+            for tbl in ['ontology_terms', 'ontology_definitions', 'ontology_relationships']:
+                conn.execute(f"DROP TABLE IF EXISTS [{tbl}]")
+            pd.DataFrame(columns=['ontology_prefix', 'identifier', 'label', 'definition']).to_sql(
+                'ontology_terms', conn, if_exists='replace', index=False)
+            pd.DataFrame(columns=['ontology_prefix', 'definition']).to_sql(
+                'ontology_definitions', conn, if_exists='replace', index=False)
+            pd.DataFrame(columns=['subject', 'predicate', 'object']).to_sql(
+                'ontology_relationships', conn, if_exists='replace', index=False)
+            conn.close()
             return True
 
         # =====================================================================
-        # STEP 5: Enrich terms from local parquet files
+        # STEP 4: Enrich terms from local parquet files
         # =====================================================================
-        print("\n5. Enriching terms from local parquet files...")
+        print("\n4. Enriching terms from local parquet files...")
 
         statements_path = ref_path / "statements.parquet"
         kegg_path = ref_path / "kegg_ko_definitions.parquet"
@@ -1565,9 +1433,9 @@ def generate_ontology_tables(
                 })
 
         # =====================================================================
-        # STEP 6: Extract relationships from statements.parquet
+        # STEP 5: Extract relationships from statements.parquet
         # =====================================================================
-        print("\n6. Extracting ontology relationships...")
+        print("\n5. Extracting ontology relationships...")
 
         relationships = []
         all_term_ids = set()
@@ -1657,9 +1525,9 @@ def generate_ontology_tables(
                     })
 
         # =====================================================================
-        # STEP 7: Add EC column to ontology terms
+        # STEP 6: Add EC column to ontology terms
         # =====================================================================
-        print("\n7. Adding EC column to ontology terms...")
+        print("\n6. Adding EC column to ontology terms...")
 
         # Load KEGG KO -> EC mapping from reference file
         kegg_ec_mapping_path = ref_path / "kegg_ko_ec_mapping.tsv"
@@ -1732,9 +1600,9 @@ def generate_ontology_tables(
         print(f"   Total terms with ec column: {total_with_ec}")
 
         # =====================================================================
-        # STEP 8: Create ontology definitions
+        # STEP 7: Create ontology definitions
         # =====================================================================
-        print("\n8. Creating ontology definitions...")
+        print("\n7. Creating ontology definitions...")
 
         ontology_definitions = {
             'GO': 'Gene Ontology - standardized vocabulary for gene and protein functions',
@@ -1756,45 +1624,44 @@ def generate_ontology_tables(
         ]
 
         # =====================================================================
-        # STEP 9: Save output files
+        # STEP 8: Write output tables to SQLite
         # =====================================================================
-        print(f"\n9. Saving output to {output_path}...")
+        print(f"\n8. Writing ontology tables to {db_path}...")
 
-        os.makedirs(output_path, exist_ok=True)
+        conn = sqlite3.connect(str(db_path))
+        for tbl in ['ontology_terms', 'ontology_definitions', 'ontology_relationships']:
+            conn.execute(f"DROP TABLE IF EXISTS [{tbl}]")
 
-        # Save ontology_terms.tsv
+        # Write ontology_terms
         terms_df = pd.DataFrame(enriched_terms)
         terms_df = terms_df.drop_duplicates(subset=['identifier'])
-        # Sort by ontology_prefix, then by identifier for proper ordering
         terms_df = terms_df.sort_values(['ontology_prefix', 'identifier']).reset_index(drop=True)
-        terms_path = output_path / 'ontology_terms.tsv'
-        terms_df.to_csv(terms_path, sep='\t', index=False)
-        print(f"   Saved {len(terms_df)} terms to ontology_terms.tsv")
+        terms_df.to_sql('ontology_terms', conn, if_exists='replace', index=False)
+        print(f"   Saved {len(terms_df)} rows to ontology_terms")
 
-        # Summary by prefix
         for prefix in terms_df['ontology_prefix'].unique():
             count = len(terms_df[terms_df['ontology_prefix'] == prefix])
             print(f"     {prefix}: {count}")
 
-        # Save ontology_definition.tsv
+        # Write ontology_definitions
         defs_df = pd.DataFrame(definition_rows)
-        defs_path = output_path / 'ontology_definition.tsv'
-        defs_df.to_csv(defs_path, sep='\t', index=False)
-        print(f"   Saved {len(defs_df)} definitions to ontology_definition.tsv")
+        defs_df.to_sql('ontology_definitions', conn, if_exists='replace', index=False)
+        print(f"   Saved {len(defs_df)} rows to ontology_definitions")
 
-        # Save ontology_relationships.tsv
+        # Write ontology_relationships
         rels_df = pd.DataFrame(relationships)
         if not rels_df.empty:
             rels_df = rels_df.drop_duplicates()
-        rels_path = output_path / 'ontology_relationships.tsv'
-        rels_df.to_csv(rels_path, sep='\t', index=False)
-        print(f"   Saved {len(rels_df)} relationships to ontology_relationships.tsv")
+        rels_df.to_sql('ontology_relationships', conn, if_exists='replace', index=False)
+        print(f"   Saved {len(rels_df)} rows to ontology_relationships")
 
         if not rels_df.empty:
             print(f"   By predicate:")
             for pred in rels_df['predicate'].unique():
                 count = len(rels_df[rels_df['predicate'] == pred])
                 print(f"     {pred}: {count}")
+
+        conn.close()
 
         print(f"\n{'='*70}")
         print(f"Ontology table generation complete!")
@@ -1811,68 +1678,68 @@ def generate_ontology_tables(
 class RASTSeedMapper:
     """
     Maps RAST annotations to SEED role ontology identifiers.
-    
+
     This mapper handles:
     - Direct exact matches
     - Multi-function annotations with various separators (/, @, ;)
     - Different SEED ontology formats (URL-based and clean IDs)
-    
+
     Usage:
         mapper = RASTSeedMapper("/data/reference_data/seed.json")
         seed_id = mapper.map_annotation("Alcohol dehydrogenase")
         # Returns: "seed.role:0000000001234"
     """
-    
+
     def __init__(self, seed_ontology_path: str):
         """
         Initialize the mapper with a SEED ontology file.
-        
+
         Args:
             seed_ontology_path: Path to SEED ontology JSON file (seed.json)
         """
         self.seed_mapping = {}
         self.multi_func_separators = [' / ', ' @ ', '; ']
         self._load_seed_ontology(seed_ontology_path)
-    
+
     def _load_seed_ontology(self, path: str) -> None:
         """Load SEED ontology from JSON file."""
         import json
         from pathlib import Path
-        
+
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"Ontology file not found: {path}")
-        
+
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        
+
         # Extract nodes from JSON-LD format
         graphs = data.get("graphs", [])
         if not graphs:
             print("Warning: No graphs found in ontology file")
             return
-            
+
         nodes = graphs[0].get("nodes", [])
-        
+
         for node in nodes:
             label = node.get("lbl")
             node_id = node.get("id")
-            
+
             if not label or not node_id:
                 continue
-                
+
             # Parse different ID formats
             seed_role_id = self._parse_seed_role_id(node_id)
             if seed_role_id:
                 self.seed_mapping[label] = seed_role_id
-                
+
         print(f"    Loaded {len(self.seed_mapping)} SEED role mappings")
-        
+
     def _parse_seed_role_id(self, raw_id: str) -> str:
         """Parse SEED role ID from various formats."""
         if not raw_id:
             return None
-            
+
         # URL format with Role parameter
         if "Role=" in raw_id:
             try:
@@ -1880,23 +1747,23 @@ class RASTSeedMapper:
                 return f"seed.role:{role_number}"
             except IndexError:
                 return None
-                
+
         # Already in clean format
         if raw_id.startswith("seed.role:"):
             return raw_id
-            
+
         # OBO-style IDs (e.g., seed.role_0000000001234)
         if '_' in raw_id and 'seed.role_' in raw_id:
             ontology_part = raw_id.split('/')[-1]
             return ontology_part.replace("_", ":", 1)
-            
+
         return None
-    
+
     def split_multi_function(self, annotation: str) -> list:
         """Split multi-function annotations into individual components."""
         if not annotation:
             return []
-            
+
         parts = [annotation]
         for separator in self.multi_func_separators:
             new_parts = []
@@ -1904,63 +1771,63 @@ class RASTSeedMapper:
                 split_parts = part.split(separator)
                 new_parts.extend(p.strip() for p in split_parts if p.strip())
             parts = new_parts
-            
+
         return parts
-    
+
     def map_annotation(self, annotation: str) -> str:
         """
         Map a RAST annotation to its SEED role ID.
-        
+
         Args:
             annotation: RAST annotation string
-            
+
         Returns:
             seed.role ID if found, None otherwise
         """
         if not annotation:
             return None
-            
+
         # Try direct match first
         if annotation in self.seed_mapping:
             return self.seed_mapping[annotation]
-            
+
         # Try splitting multi-function annotations
         parts = self.split_multi_function(annotation)
-        
+
         if len(parts) > 1:
             for part in parts:
                 if part in self.seed_mapping:
                     return self.seed_mapping[part]
-                    
+
         return None
-    
+
     def map_all_annotations(self, annotation: str) -> list:
         """
         Map a RAST annotation to ALL matching SEED role IDs.
-        
+
         For multi-function annotations like "Thioredoxin / Glutaredoxin",
         returns all matching roles.
-        
+
         Args:
             annotation: RAST annotation string
-            
+
         Returns:
             List of tuples (matched_part, seed_role_id)
         """
         if not annotation:
             return []
-        
+
         results = []
-        
+
         # Try direct match first
         if annotation in self.seed_mapping:
             results.append((annotation, self.seed_mapping[annotation]))
-        
+
         # Try splitting multi-function annotations
         parts = self.split_multi_function(annotation)
-        
+
         for part in parts:
             if part in self.seed_mapping and part != annotation:
                 results.append((part, self.seed_mapping[part]))
-        
+
         return results
