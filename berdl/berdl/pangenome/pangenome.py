@@ -64,7 +64,7 @@ class BERDLPangenome:
             '--min-seq-id', '0.0',
             '--cov-mode', '0',
             '-c', '0.80',
-            '-t', str(t),
+            '--threads', str(t),
             str(filename_faa.resolve()),
             filename_faa.name[:-4],
             'mmseqs2_tmp',
