@@ -105,4 +105,5 @@ class QueryGenomeLocal(QueryGenomeABC):
 
     def get_genome_contigs(self, genome_id: str):
         """Return all gene clusters for a given clade."""
+
         raise NotImplementedError

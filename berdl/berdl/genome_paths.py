@@ -60,7 +60,7 @@ class GenomePaths:
 
         object.__setattr__(self, "ani_kepangenomes_json", self.ani_dir / "kepangenomes_fast.json")
         object.__setattr__(self, "ani_fitness_json", self.ani_dir / "fitness_fast.json")
-        object.__setattr__(self, "skani_fast_phenotypes_db", self.ani_dir / "phenotypes_fast.json")
+        object.__setattr__(self, "ani_phenotypes_json", self.ani_dir / "phenotypes_fast.json")
 
         # reference data (derived from configurable root)
         skani_root = self.reference_root / "skani_library"
