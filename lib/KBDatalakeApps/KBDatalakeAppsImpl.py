@@ -316,8 +316,15 @@ Author: chenry
         suffix = params.get('suffix', ctx['token'])
         save_models = params.get('save_models', 0)
 
+        genome_refs = [input_refs[0]]  # FIXME: this is not correct
+
         if not skip_genome_pipeline:
             self.run_genome_pipeline(input_params.resolve())
+            for genome_ref in genome_refs:
+                info = self.util.get_object_info(genome_ref)
+                path_genome_tsv = Path(self.shared_folder) / "genome" / f'user_{info[1]}_genome.tsv'
+                print(f'create genome tsv: {path_genome_tsv} for {genome_ref}')
+                self.util.run_user_genome_to_tsv(genome_ref, str(path_genome_tsv))
         else:
             print('skip genome pipeline')
 
