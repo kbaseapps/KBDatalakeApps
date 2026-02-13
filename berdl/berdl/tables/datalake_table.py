@@ -25,7 +25,7 @@ def convert_kbase_location(feature_location):
 class DatalakeTableBuilder:
 
     def __init__(self, root_genome: GenomePaths, root_pangenome: PathsPangenome,
-                 include_dna_sequence: True, include_protein_sequence: True):
+                 include_dna_sequence=True, include_protein_sequence=True):
         self.root_genome = root_genome
         self.root_pangenome = root_pangenome
         self.include_dna_sequence = include_dna_sequence

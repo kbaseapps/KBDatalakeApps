@@ -14,7 +14,7 @@ def main(input_params, selected_clade_member):
     paths_pangenome = PathsPangenome(root=root_pangenome)
     paths_root = GenomePaths(root=Path(input_params['_config']['scratch']).resolve())
 
-    builder = DatalakeTableBuilder(paths_root, paths_pangenome)
+    builder = DatalakeTableBuilder(paths_root, paths_pangenome, True, True)
     builder.build()
 
 
