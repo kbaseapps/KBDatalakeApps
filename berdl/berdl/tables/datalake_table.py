@@ -280,7 +280,7 @@ class DatalakeTableBuilder:
                 path_genome_faa = input_genome_dir / f
                 genome_id = path_genome_faa.name[5:-4]  # strip user_<genome_id>.faa
                 path_genome_tsv = input_genome_dir / f'{genome_id}_genome.tsv'
-                path_genome_pangenome_profile = input_genome_dir / f'{genome_id}_pangenome_profile.tsv'
+                path_genome_pangenome_profile = input_genome_dir / f'user_{genome_id}_pangenome_profile.tsv'
                 if path_genome_tsv.exists():
                     d_pangenome_profile = {}
                     if path_genome_pangenome_profile.exists():
