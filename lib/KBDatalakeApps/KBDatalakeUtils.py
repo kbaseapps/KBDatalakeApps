@@ -132,102 +132,6 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
             num_noncoding
         ]
 
-    def pipeline_run_pangenome_kberdl_query(self):
-        """
-        Pipeline step for running pangenome query against KBase BERDL.
-
-        Uses SKANI results to find related pangenome data for each user genome.
-        Queries BERDL for:
-        - Clade membership information
-        - Gene clusters for matched clades
-        - ANI matrices for matched genomes
-
-        Results are saved to self.directory/berdl_pangenome/
-
-        Author: Jose P. Faria (jplfaria@gmail.com)
-        """
-
-        raise NotImplementedError("AI hallucinated")
-
-        if QueryPangenomeBERDL is None:
-            print("Warning: BERDL pangenome module not available, skipping")
-            return
-
-        # Get token from environment or app parameters
-        token = os.environ.get('KBASE_AUTH_TOKEN') or self.app_parameters.get('token', '')
-        if not token:
-            print("Warning: No BERDL token available, skipping pangenome query")
-            return
-
-        skani_file = os.path.join(self.directory, "skani", "skani_pangenome.tsv")
-        if not os.path.exists(skani_file):
-            print(f"Warning: SKANI pangenome results not found at {skani_file}, skipping")
-            return
-
-        output_dir = os.path.join(self.directory, "berdl_pangenome")
-        os.makedirs(output_dir, exist_ok=True)
-
-        print("Running BERDL pangenome queries...")
-
-        try:
-            # Initialize BERDL query client
-            qp = QueryPangenomeBERDL(token=token)
-
-            # Load SKANI results
-            skani_df = pd.read_csv(skani_file, sep='\t')
-            print(f"  Loaded {len(skani_df)} SKANI hits")
-
-            # Get unique reference genomes from SKANI hits
-            if 'reference_genome' not in skani_df.columns:
-                print("  Warning: No reference_genome column in SKANI results")
-                return
-
-            reference_genomes = skani_df['reference_genome'].unique().tolist()
-            print(f"  Found {len(reference_genomes)} unique reference genomes")
-
-            # Query clade information for each reference genome
-            clade_results = []
-            for ref_genome in reference_genomes[:50]:  # Limit to avoid timeout
-                try:
-                    clade_id = qp.get_member_representative(ref_genome)
-                    clade_results.append({
-                        'reference_genome': ref_genome,
-                        'gtdb_species_clade_id': clade_id
-                    })
-                except Exception as e:
-                    print(f"  Warning: Could not get clade for {ref_genome}: {e}")
-
-            if clade_results:
-                clade_df = pd.DataFrame(clade_results)
-                clade_path = os.path.join(output_dir, "reference_clades.tsv")
-                clade_df.to_csv(clade_path, sep='\t', index=False)
-                print(f"  Saved {len(clade_results)} clade mappings to {clade_path}")
-
-                # Get unique clades and query their members
-                unique_clades = clade_df['gtdb_species_clade_id'].unique().tolist()
-                print(f"  Querying {len(unique_clades)} unique clades...")
-
-                all_clade_members = []
-                for clade_id in unique_clades[:20]:  # Limit
-                    try:
-                        members_df = qp.get_clade_members(clade_id)
-                        if not members_df.empty:
-                            members_df['query_clade'] = clade_id
-                            all_clade_members.append(members_df)
-                    except Exception as e:
-                        print(f"  Warning: Could not get members for clade {clade_id}: {e}")
-
-                if all_clade_members:
-                    combined_members = pd.concat(all_clade_members, ignore_index=True)
-                    members_path = os.path.join(output_dir, "clade_members.tsv")
-                    combined_members.to_csv(members_path, sep='\t', index=False)
-                    print(f"  Saved {len(combined_members)} clade members to {members_path}")
-
-            print("BERDL pangenome queries complete")
-
-        except Exception as e:
-            print(f"Error in BERDL pangenome query: {e}")
-
     def pipeline_save_annotated_genomes(self):
         """
         Pipeline step for saving annotated genomes back to KBase.
@@ -235,78 +139,43 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
         """
         pass
 
-    def pipeline_phenotype_tables(self, phenotypes_dir):
-        """Build summary phenotype tables from individual simulation results."""
-        accuracy_rows = []
-        gene_pheno_rows = []
-        pheno_gap_rows = []
-        gapfill_rxn_rows = []
-
-        for result_file in os.listdir(phenotypes_dir):
-            if not result_file.endswith('_phenosim.json'):
-                continue
-
-            result_path = os.path.join(phenotypes_dir, result_file)
-            with open(result_path) as f:
-                result = json.load(f)
-
-            model_id = result.get('model_id', result_file.replace('_phenosim.json', ''))
-
-            # Genome accuracy table
-            if 'accuracy' in result:
-                accuracy_rows.append({
-                    'genome_id': model_id,
-                    **result['accuracy']
-                })
-
-            # Gene phenotype reactions
-            for gp in result.get('gene_phenotype_reactions', []):
-                gene_pheno_rows.append({'genome_id': model_id, **gp})
-
-            # Phenotype gaps
-            for pg in result.get('phenotype_gaps', []):
-                pheno_gap_rows.append({'genome_id': model_id, **pg})
-
-            # Gapfilled reactions
-            for gr in result.get('gapfilled_reactions', []):
-                gapfill_rxn_rows.append({'genome_id': model_id, **gr})
-
-        # Save tables
-        if accuracy_rows:
-            pd.DataFrame(accuracy_rows).to_csv(
-                os.path.join(phenotypes_dir, 'genome_accuracy.tsv'), sep='\t', index=False)
-        if gene_pheno_rows:
-            pd.DataFrame(gene_pheno_rows).to_csv(
-                os.path.join(phenotypes_dir, 'genome_gene_phenotype_reactions.tsv'), sep='\t', index=False)
-        if pheno_gap_rows:
-            pd.DataFrame(pheno_gap_rows).to_csv(
-                os.path.join(phenotypes_dir, 'genome_phenotype_gaps.tsv'), sep='\t', index=False)
-        if gapfill_rxn_rows:
-            pd.DataFrame(gapfill_rxn_rows).to_csv(
-                os.path.join(phenotypes_dir, 'gapfilled_reactions.tsv'), sep='\t', index=False)
-
-        print(f"Built phenotype summary tables in {phenotypes_dir}")
-
-    def build_phenotype_tables(self, phenotypes_dir, phenosim_directory, experiment_data_file=None, phenoset_file=None):
+    def build_phenotype_tables(self, output_dir, phenosim_directory,
+                               experiment_data_file=None, phenoset_file=None,
+                               fitness_mapping_dir=None, fitness_genomes_dir=None,
+                               model_data_dir=None, reference_phenosim_dir=None,
+                               fitness_threshold=-0.5):
         """
-        Pipeline step for building phenotype experimental data, genome phenotype, and gene phenotype tables.
+        Pipeline step for building phenotype tables.
 
         Reads individual per-genome phenosim JSON files from phenosim_directory.
         Each file is named {genome_id}.json and contains:
+          - details: parallel arrays (Phenotype, Class, Simulated objective,
+                     Observed objective, Transports missing)
           - data: dict keyed by cpd_id with objective_value, class, reactions,
                   gfreactions, gapfill_count, fluxes, etc.
           - data.summary: dict with accuracy, CP, CN, FP, FN, P, N
 
         Creates three TSV files:
         1. model_performance.tsv - Model accuracy metrics per genome
-        2. genome_phenotypes.tsv - Phenotype predictions per genome
-        3. gene_phenotypes.tsv - Gene-phenotype associations from gapfilled reactions
+        2. genome_phenotypes.tsv - Phenotype predictions per genome (with transports)
+        3. gene_phenotypes.tsv - Gene-phenotype associations from gapfilling,
+           model predictions, and fitness data
 
         Args:
-            phenotypes_dir: Directory to save output TSV files
+            output_dir: Directory to save output TSV files
             phenosim_directory: Directory containing per-genome phenosim JSON files
             experiment_data_file: Path to experimental_data.json (optional)
             phenoset_file: Path to full_phenotype_set.json (optional)
+            fitness_mapping_dir: Directory containing {genome_id}_fitness.parquet
+                                 files mapping user genes to fitness data (optional)
+            fitness_genomes_dir: Directory containing fitness genome JSON files
+                                 (e.g., ANA3.json) with condition metadata (optional)
+            model_data_dir: Directory containing *_data.json model output files
+                            with minimal media fluxes for model predictions (optional)
+            reference_phenosim_dir: Directory containing pre-computed phenosim JSON
+                                    files for experimental/reference genomes (optional).
+                                    These are added to model_performance and
+                                    genome_phenotypes tables with source="experiment".
         """
         # Default file paths
         if phenoset_file is None:
@@ -323,12 +192,14 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
                 cpd_names[pheno["id"]] = pheno.get("name", pheno["id"])
 
         # Load experimental data indexed by genome
+        # Normalize genome IDs: replace dots with underscores to match phenosim filenames
+        # (e.g., "106654.22" in experimental_data.json -> "106654_22" in phenosim files)
         genome_experiment_data = {}
         if os.path.exists(experiment_data_file):
             with open(experiment_data_file) as f:
                 experiment_data = json.load(f)
             for _, item_val in experiment_data.items():
-                genome_id = item_val["genome_id"]
+                genome_id = item_val["genome_id"].replace(".", "_")
                 if genome_id not in genome_experiment_data:
                     genome_experiment_data[genome_id] = {}
                 genome_experiment_data[genome_id][item_val["cpd_id"]] = {
@@ -337,99 +208,187 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
                     "chebi_id": item_val.get("chebi_id", "")
                 }
 
-        # Collect per-genome phenosim files
-        phenosim_files = []
+        # === Load fitness condition mappings from fitness genome JSONs ===
+        # Build (fitness_genome_id, set_id) -> msid for carbon_source conditions
+        setid_to_msid = {}
+        if fitness_genomes_dir and os.path.isdir(fitness_genomes_dir):
+            for fg_file in os.listdir(fitness_genomes_dir):
+                if not fg_file.endswith('.json'):
+                    continue
+                fg_id = fg_file.replace('.json', '')
+                fg_path = os.path.join(fitness_genomes_dir, fg_file)
+                try:
+                    with open(fg_path) as f:
+                        fg_data = json.load(f)
+                    for gene_data in fg_data.get("genes", {}).values():
+                        for set_id, fitness_entry in gene_data.get("fitness", {}).items():
+                            if fitness_entry.get("type") == "carbon_source" and "msid" in fitness_entry:
+                                key = (fg_id, set_id)
+                                if key not in setid_to_msid:
+                                    setid_to_msid[key] = fitness_entry["msid"]
+                except (json.JSONDecodeError, IOError) as e:
+                    print(f"  Warning: Could not read fitness genome {fg_file}: {e}")
+            if setid_to_msid:
+                n_orgs = len(set(k[0] for k in setid_to_msid))
+                print(f"Loaded {len(setid_to_msid)} condition-to-compound mappings from {n_orgs} fitness genomes")
+
+        # Pre-build the condition mapping DataFrame for efficient joins
+        mapping_df = None
+        if setid_to_msid:
+            mapping_rows = [(fg_id, sid, msid) for (fg_id, sid), msid in setid_to_msid.items()]
+            mapping_df = pd.DataFrame(mapping_rows, columns=['fitness_genome_id', 'set_id', 'msid'])
+
+        # === Load model data for minimal media fluxes and gene-reaction mapping ===
+        model_minimal_fluxes = {}  # genome_id -> {rxn_id: flux}
+        model_rxn_to_genes = {}   # genome_id -> {rxn_id: set(gene_ids)}
+        if model_data_dir and os.path.isdir(model_data_dir):
+            for mf in os.listdir(model_data_dir):
+                if not mf.endswith('_data.json'):
+                    continue
+                mf_path = os.path.join(model_data_dir, mf)
+                try:
+                    with open(mf_path) as f:
+                        mdata = json.load(f)
+                except (json.JSONDecodeError, IOError):
+                    continue
+                if not mdata.get('success', False):
+                    continue
+                mid = mdata.get('model_info', {}).get('model_id', mf.replace('_data.json', ''))
+                model_minimal_fluxes[mid] = (
+                    mdata.get('flux_analysis', {}).get('minimal_media', {}).get('pfba_fluxes', {}))
+                rxn_genes = {}
+                for rxn in mdata.get('reactions', []):
+                    gene_rule = rxn.get('gene_reaction_rule', '')
+                    if gene_rule:
+                        genes = set(re.findall(r'\b(?!and\b|or\b)[A-Za-z]\w*', gene_rule))
+                        if genes:
+                            rxn_genes[rxn['id']] = genes
+                model_rxn_to_genes[mid] = rxn_genes
+            if model_minimal_fluxes:
+                print(f"Loaded model data for {len(model_minimal_fluxes)} genomes")
+
+        # Collect phenosim files from user directory and reference directory
+        # Each entry: (filepath, genome_id, source)
+        phenosim_items = []
+        phenosim_genome_ids = set()
+
         if os.path.isdir(phenosim_directory):
-            phenosim_files = [f for f in os.listdir(phenosim_directory) if f.endswith('.json')]
-        if not phenosim_files:
+            for f in os.listdir(phenosim_directory):
+                if f.endswith('_phenosim.json'):
+                    gid = f.replace('_phenosim.json', '')
+                    source = "user" if gid.startswith("user_") else "pangenome"
+                    phenosim_items.append((os.path.join(phenosim_directory, f), gid, source))
+                    phenosim_genome_ids.add(gid)
+
+        if reference_phenosim_dir and os.path.isdir(reference_phenosim_dir):
+            ref_count = 0
+            for f in os.listdir(reference_phenosim_dir):
+                if f.endswith('.json'):
+                    gid = f.replace('.json', '')
+                    if gid not in phenosim_genome_ids:
+                        phenosim_items.append((os.path.join(reference_phenosim_dir, f), gid, "experiment"))
+                        phenosim_genome_ids.add(gid)
+                        ref_count += 1
+            if ref_count:
+                print(f"Found {ref_count} reference phenosim files from {reference_phenosim_dir}")
+
+        if not phenosim_items:
             print(f"No phenosim JSON files found in {phenosim_directory}")
             return
 
-        print(f"Processing {len(phenosim_files)} phenosim files from {phenosim_directory}")
-
-        # Create output directory
-        os.makedirs(phenotypes_dir, exist_ok=True)
+        print(f"Processing {len(phenosim_items)} total phenosim files ({sum(1 for _,_,s in phenosim_items if s=='user')} user, {sum(1 for _,_,s in phenosim_items if s=='pangenome')} pangenome, {sum(1 for _,_,s in phenosim_items if s=='experiment')} experiment)")
+        os.makedirs(output_dir, exist_ok=True)
 
         model_performance_rows = []
         genome_phenotype_rows = []
         gene_phenotype_rows = []
 
-        for phenosim_file in phenosim_files:
-            genome_id = phenosim_file.replace('.json', '')
-            filepath = os.path.join(phenosim_directory, phenosim_file)
+        for filepath, genome_id, genome_source in phenosim_items:
             try:
                 with open(filepath) as f:
                     file_data = json.load(f)
             except (json.JSONDecodeError, IOError) as e:
-                print(f"  Warning: Could not read {phenosim_file}: {e}")
+                print(f"  Warning: Could not read {filepath}: {e}")
                 continue
 
             details = file_data.get("details", {})
             data = file_data.get("data", {})
-            summary = data.get("summary", {})
             exp_data = genome_experiment_data.get(genome_id, {})
 
-            # ===== TABLE 1: Model Performance row =====
-            # Recompute accuracy by comparing zero-gapfill predictions vs experimental data
-            positive_growth_count = 0
-            negative_growth_count = 0
-            positive_gaps = []
-            negative_gaps = []
-            cp = 0  # correct positive: exp=growth, model=growth (no gapfill)
-            cn = 0  # correct negative: exp=no_growth, model=no_growth
-            fp = 0  # false positive: exp=no_growth, model=growth (no gapfill)
-            fn = 0  # false negative: exp=growth, model=no_growth
+            # === Build phenotype_data from details arrays ===
+            phenotype_data = {}  # cpd_id -> {class, simulated_objective, ...}
+            phenotype_list = details.get("Phenotype", [])
+            class_list = details.get("Class", [])
+            sim_obj_list = details.get("Simulated objective", [])
+            obs_obj_list = details.get("Observed objective", [])
+            transport_list = details.get("Transports missing", [])
 
-            for cpd_id,index in enumerate(details["Phenotype"]):
-                if cpd_id not in exp_data:
-                    continue
-                if details["Class"][index] == "P":
-                    positive_growth_count += 1
-                    if cpd_id in exp_data:
-                        if bool(exp_data[cpd_id]["growth"]):
-                            cp += 1
-                        else:
-                            fp += 1
-                else:
-                    negative_growth_count += 1
-                    if cpd_id in exp_data:
-                        if bool(exp_data[cpd_id]["growth"]):
-                            fn += 1
-                        else:
-                            cn += 1
+            for i, cpd_id in enumerate(phenotype_list):
+                phenotype_data[cpd_id] = {
+                    "class": class_list[i] if i < len(class_list) else "",
+                    "simulated_objective": sim_obj_list[i] if i < len(sim_obj_list) else 0,
+                    "observed_objective": obs_obj_list[i] if i < len(obs_obj_list) else 0,
+                    "transports_added": transport_list[i] if i < len(transport_list) else "",
+                }
 
-
-
-
+            # Enrich with per-compound data (gapfilling results, fluxes)
             for cpd_id, cpd_data in data.items():
                 if cpd_id == "summary" or not isinstance(cpd_data, dict):
                     continue
-                obj_value = cpd_data.get("objective_value", 0) or 0
-                gap_count = cpd_data.get("gapfill_count", 0) or 0
+                if cpd_id not in phenotype_data:
+                    phenotype_data[cpd_id] = {
+                        "class": cpd_data.get("class", ""),
+                        "simulated_objective": cpd_data.get("objective_value", 0) or 0,
+                        "observed_objective": cpd_data.get("experimental_value", 0) or 0,
+                        "transports_added": ";".join(cpd_data.get("missing_transports", [])),
+                    }
+                pd_entry = phenotype_data[cpd_id]
+                pd_entry["objective_value"] = cpd_data.get("objective_value", 0) or 0
+                pd_entry["gap_count"] = cpd_data.get("gapfill_count", 0) or 0
+                pd_entry["gfreactions"] = cpd_data.get("gfreactions") or {}
+                pd_entry["fluxes"] = cpd_data.get("fluxes") or {}
+                pd_entry["reactions"] = cpd_data.get("reactions") or []
+                pd_entry["reaction_count"] = cpd_data.get("reaction_count", len(pd_entry["reactions"]))
 
-                # Model predicts growth only if objective > threshold AND no gapfilling needed
-                model_grows = obj_value > 0.01 and gap_count == 0
+            # Enrich experimental genomes with observed data from experiment_data_file
+            # Sets observed_objective and recomputes class (P/N -> CP/CN/FP/FN)
+            if genome_source == "experiment" and exp_data:
+                for cpd_id, pd_entry in phenotype_data.items():
+                    if cpd_id in exp_data:
+                        growth = exp_data[cpd_id]["growth"]
+                        pd_entry["observed_objective"] = growth
+                        sim_cls = pd_entry["class"]
+                        if sim_cls in ("P", "CP", "FP"):
+                            pd_entry["class"] = "CP" if growth else "FP"
+                        elif sim_cls in ("N", "CN", "FN"):
+                            pd_entry["class"] = "FN" if growth else "CN"
 
-                if obj_value > 0.01:
+            # ===== TABLE 1: Model Performance =====
+            # Use class from details: CP/CN/FP/FN (with exp data) or P/N (without)
+            cp = cn = fp = fn = 0
+            positive_growth_count = negative_growth_count = 0
+            positive_gaps = []
+            negative_gaps = []
+
+            for cpd_id, pd_entry in phenotype_data.items():
+                cls = pd_entry["class"]
+                gap_count = pd_entry.get("gap_count", 0)
+                if cls in ("P", "CP", "FP"):
                     positive_growth_count += 1
-                    if gap_count > 0:
+                    if gap_count:
                         positive_gaps.append(gap_count)
                 else:
                     negative_growth_count += 1
-                    if gap_count > 0:
+                    if gap_count:
                         negative_gaps.append(gap_count)
-
-                # Compare against experimental data if available
-                if cpd_id in exp_data:
-                    exp_grows = bool(exp_data[cpd_id]["growth"])
-                    if exp_grows and model_grows:
-                        cp += 1
-                    elif exp_grows and not model_grows:
-                        fn += 1
-                    elif not exp_grows and model_grows:
-                        fp += 1
-                    else:
-                        cn += 1
+                if cls == "CP":
+                    cp += 1
+                elif cls == "CN":
+                    cn += 1
+                elif cls == "FP":
+                    fp += 1
+                elif cls == "FN":
+                    fn += 1
 
             total_compared = cp + cn + fp + fn
             accuracy = round((cp + cn) / total_compared, 4) if total_compared > 0 else 0
@@ -446,99 +405,653 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
                 "negative_growth": negative_growth_count,
                 "avg_positive_growth_gaps": round(sum(positive_gaps) / len(positive_gaps), 4) if positive_gaps else 0,
                 "avg_negative_growth_gaps": round(sum(negative_gaps) / len(negative_gaps), 4) if negative_gaps else 0,
-                "closest_user_genomes": ""
+                "closest_user_genomes": "",
+                "source": genome_source
             })
 
-            # ===== TABLE 2 & 3: Per-phenotype rows =====
-            # Track gene associations per genome for Table 3
-            gene_phenotype_map = {}  # gene_id -> {cpd_id -> {reactions, scores}}
-
-            for cpd_id, cpd_data in data.items():
-                if cpd_id == "summary" or not isinstance(cpd_data, dict):
-                    continue
-
-                obj_value = cpd_data.get("objective_value", 0) or 0
-                pred_class = cpd_data.get("class", "")
-                reactions = cpd_data.get("reactions", [])
-                gfreactions = cpd_data.get("gfreactions", {})
-                gap_count = cpd_data.get("gapfill_count", 0) or 0
-                fluxes = cpd_data.get("fluxes", {})
-
-                # Find closest experimental data for this phenotype
+            # ===== TABLE 2: Genome Phenotypes (from phenotype_data with transports) =====
+            for cpd_id, pd_entry in phenotype_data.items():
+                # Only populate closest_experimental_data for user genomes
                 closest_exp = ""
-                if cpd_id in exp_data:
+                if genome_source == "user" and cpd_id in exp_data:
                     exp_info = exp_data[cpd_id]
                     closest_exp = f"{exp_info['source']}:{'growth' if exp_info['growth'] else 'no_growth'}"
 
-                # Table 2 row
                 genome_phenotype_rows.append({
                     "genome_id": genome_id,
                     "phenotype_id": cpd_id,
                     "phenotype_name": cpd_names.get(cpd_id, cpd_id),
-                    "growth_prediction": "positive" if obj_value > 0.01 else "negative",
-                    "class": pred_class,
-                    "objective_value": round(obj_value, 6),
-                    "gap_count": gap_count,
-                    "gapfilled_reactions": ";".join(gfreactions.keys()) if gfreactions else "",
-                    "reaction_count": cpd_data.get("reaction_count", len(reactions)),
-                    "closest_experimental_data": closest_exp
+                    "class": pd_entry["class"],
+                    "simulated_objective": round(pd_entry["simulated_objective"], 6) if pd_entry["simulated_objective"] else 0,
+                    "observed_objective": pd_entry["observed_objective"],
+                    "gap_count": pd_entry.get("gap_count", 0),
+                    "gapfilled_reactions": ";".join(pd_entry.get("gfreactions", {}).keys()),
+                    "reaction_count": pd_entry.get("reaction_count", 0),
+                    "transports_added": pd_entry.get("transports_added", ""),
+                    "closest_experimental_data": closest_exp,
+                    "source": genome_source
                 })
 
-                # Table 3: extract gene associations from gapfilled reactions
-                # gfreactions format: {rxn_id: [direction, gene_or_null]}
-                if gfreactions:
-                    for rxn_id, rxn_info in gfreactions.items():
-                        gene_id = rxn_info[1] if isinstance(rxn_info, list) and len(rxn_info) > 1 and rxn_info[1] else None
-                        if gene_id:
-                            if gene_id not in gene_phenotype_map:
-                                gene_phenotype_map[gene_id] = {}
-                            if cpd_id not in gene_phenotype_map[gene_id]:
-                                gene_phenotype_map[gene_id][cpd_id] = {
-                                    "reactions": set(),
-                                    "fluxes": []
-                                }
-                            gene_phenotype_map[gene_id][cpd_id]["reactions"].add(rxn_id)
-                            # Use flux as a fitness proxy if available
-                            if rxn_id in fluxes:
-                                gene_phenotype_map[gene_id][cpd_id]["fluxes"].append(abs(fluxes[rxn_id]))
+            # ===== TABLE 3: Gene-Phenotype Associations =====
+            # Collect from three sources: gapfill, model predictions, fitness
+            # gene_pheno_map: gene_id -> cpd_id -> {association data}
+            gene_pheno_map = {}
 
-            # Convert gene map to Table 3 rows
-            for gene_id, phenotype_dict in gene_phenotype_map.items():
-                for cpd_id, gdata in phenotype_dict.items():
-                    scores = gdata["fluxes"]
+            def _ensure_gene_pheno(gene_id, cpd_id):
+                if gene_id not in gene_pheno_map:
+                    gene_pheno_map[gene_id] = {}
+                if cpd_id not in gene_pheno_map[gene_id]:
+                    gene_pheno_map[gene_id][cpd_id] = {
+                        "gapfill_reactions": set(),
+                        "model_pred_reactions": set(),
+                        "model_pred_fluxes": [],
+                        "sources": set()
+                    }
+                return gene_pheno_map[gene_id][cpd_id]
+
+            # Source 1: Gapfilled reactions
+            for cpd_id, pd_entry in phenotype_data.items():
+                gfreactions = pd_entry.get("gfreactions", {})
+                if not gfreactions:
+                    continue
+                for rxn_id, rxn_info in gfreactions.items():
+                    gene_id = (rxn_info[1]
+                               if isinstance(rxn_info, list) and len(rxn_info) > 1 and rxn_info[1]
+                               else None)
+                    if gene_id:
+                        entry = _ensure_gene_pheno(gene_id, cpd_id)
+                        entry["sources"].add("gapfill")
+                        entry["gapfill_reactions"].add(rxn_id)
+
+            # Source 2: Model predictions - reactions active in phenotype
+            #           but NOT active in pyruvate minimal media
+            min_fluxes = model_minimal_fluxes.get(genome_id, {})
+            rxn_to_genes = model_rxn_to_genes.get(genome_id, {})
+            if min_fluxes and rxn_to_genes:
+                for cpd_id, pd_entry in phenotype_data.items():
+                    pheno_fluxes = pd_entry.get("fluxes", {})
+                    if not pheno_fluxes:
+                        continue
+                    for rxn_id, pheno_flux in pheno_fluxes.items():
+                        if abs(pheno_flux) < 1e-6:
+                            continue
+                        min_flux = min_fluxes.get(rxn_id, 0)
+                        if abs(min_flux) < 1e-6:
+                            # Active in phenotype, not in minimal media
+                            genes = rxn_to_genes.get(rxn_id, set())
+                            for gene_id in genes:
+                                entry = _ensure_gene_pheno(gene_id, cpd_id)
+                                entry["sources"].add("model_prediction")
+                                entry["model_pred_reactions"].add(rxn_id)
+                                entry["model_pred_fluxes"].append(abs(pheno_flux))
+
+            # Source 3: Fitness data from mapping parquet
+            gene_fitness_for_genome = {}  # gene_id -> cpd_id -> {max, min, avg, count}
+            gene_essentiality_for_genome = {}  # gene_id -> {essential_count, total_count}
+            genes_with_fitness_match = set()  # genes matched to fitness genome clusters
+            genes_with_fitness_data = set()  # genes with actual fitness or essentiality data
+            if fitness_mapping_dir and os.path.isdir(fitness_mapping_dir):
+                fitness_parquet = os.path.join(
+                    fitness_mapping_dir, f"{genome_id}_fitness.parquet")
+                if os.path.exists(fitness_parquet):
+                    fitness_df = pd.read_parquet(fitness_parquet)
+                    # All genes in the parquet are matched to fitness genome clusters
+                    genes_with_fitness_match = set(fitness_df['feature_id'].unique())
+                    # Extract and remove match-only marker rows
+                    match_mask = fitness_df['set_id'] == 'fitness_genome_match'
+                    fitness_df = fitness_df[~match_mask]
+                    # Extract essentiality data (set_id == 'essentiality')
+                    ess_mask = fitness_df['set_id'] == 'essentiality'
+                    if ess_mask.any():
+                        ess_df = fitness_df[ess_mask]
+                        ess_agg = (ess_df
+                                   .groupby('feature_id')['value']
+                                   .agg(essential_count='sum', total_count='count')
+                                   .reset_index())
+                        for _, row in ess_agg.iterrows():
+                            gene_essentiality_for_genome[row['feature_id']] = {
+                                'essential_count': int(row['essential_count']),
+                                'total_count': int(row['total_count'])
+                            }
+                        genes_with_fitness_data.update(gene_essentiality_for_genome.keys())
+                        # Remove essentiality rows before fitness processing
+                        fitness_df = fitness_df[~ess_mask]
+                    # Join with condition mapping to get msid (compound ID)
+                    if mapping_df is not None and not fitness_df.empty:
+                        fitness_with_msid = fitness_df.merge(
+                            mapping_df, on=['fitness_genome_id', 'set_id'], how='inner')
+                        if not fitness_with_msid.empty:
+                            # Aggregate by (feature_id, msid)
+                            agg = (fitness_with_msid
+                                   .groupby(['feature_id', 'msid'])['value']
+                                   .agg(['max', 'min', 'mean', 'count'])
+                                   .reset_index())
+                            for _, row in agg.iterrows():
+                                fid = row['feature_id']
+                                if fid not in gene_fitness_for_genome:
+                                    gene_fitness_for_genome[fid] = {}
+                                gene_fitness_for_genome[fid][row['msid']] = {
+                                    'max': row['max'],
+                                    'min': row['min'],
+                                    'avg': row['mean'],
+                                    'count': int(row['count'])
+                                }
+                            genes_with_fitness_data.update(gene_fitness_for_genome.keys())
+                            print(f"  Loaded fitness data for {len(gene_fitness_for_genome)} genes in {genome_id}")
+                    if gene_essentiality_for_genome:
+                        print(f"  Loaded essentiality data for {len(gene_essentiality_for_genome)} genes in {genome_id}")
+
+            # Merge fitness into gene_pheno_map (with threshold gating)
+            for gene_id, cpd_fitness in gene_fitness_for_genome.items():
+                for cpd_id, stats in cpd_fitness.items():
+                    meets_threshold = stats['min'] <= fitness_threshold
+                    if gene_id in gene_pheno_map and cpd_id in gene_pheno_map[gene_id]:
+                        # Gene already associated via gapfill/model — always add stats
+                        entry = gene_pheno_map[gene_id][cpd_id]
+                        entry["fitness_stats"] = stats
+                        if meets_threshold:
+                            entry["sources"].add("fitness")
+                    elif meets_threshold:
+                        # New association — only create if threshold met
+                        entry = _ensure_gene_pheno(gene_id, cpd_id)
+                        entry["sources"].add("fitness")
+                        entry["fitness_stats"] = stats
+
+            # Convert gene_pheno_map to Table 3 rows
+            for gene_id, pheno_dict in gene_pheno_map.items():
+                for cpd_id, assoc in pheno_dict.items():
+                    fitness_stats = assoc.get("fitness_stats", {})
+                    model_fluxes = assoc["model_pred_fluxes"]
+                    # Fitness values: None when no data, numeric when present
+                    if fitness_stats:
+                        fitness_max = round(fitness_stats.get('max', 0), 6)
+                        fitness_min = round(fitness_stats.get('min', 0), 6)
+                        fitness_avg = round(fitness_stats.get('avg', 0), 6)
+                        fitness_count = fitness_stats.get('count', 0)
+                    else:
+                        fitness_max = None
+                        fitness_min = None
+                        fitness_avg = None
+                        fitness_count = None
+                    # Apply essentiality overrides based on homolog data:
+                    #   fitness_min = "essential" if at least one homolog is essential
+                    #   fitness_avg = "essential" if majority of homologs are essential
+                    #   fitness_max = "essential" if all homologs are essential
+                    ess = gene_essentiality_for_genome.get(gene_id)
+                    if ess:
+                        ess_count = ess['essential_count']
+                        ess_total = ess['total_count']
+                        if ess_count >= 1:
+                            fitness_min = "essential"
+                        if ess_count > ess_total / 2:
+                            fitness_avg = "essential"
+                        if ess_count == ess_total:
+                            fitness_max = "essential"
+                    # Fitness match status column
+                    if gene_id in genes_with_fitness_data:
+                        fitness_match = "matched_with_data"
+                    elif gene_id in genes_with_fitness_match:
+                        fitness_match = "matched_no_data"
+                    else:
+                        fitness_match = "no_match"
+                    # Strip _c0 compartment suffix from reaction IDs
+                    gf_rxns = ";".join(sorted(
+                        r.replace("_c0", "") for r in assoc["gapfill_reactions"]))
+                    mp_rxns = ";".join(sorted(
+                        r.replace("_c0", "") for r in assoc["model_pred_reactions"]))
                     gene_phenotype_rows.append({
                         "genome_id": genome_id,
                         "gene_id": gene_id,
                         "phenotype_id": cpd_id,
-                        "associated_reactions": ";".join(sorted(gdata["reactions"])),
-                        "max_fitness_score": round(max(scores), 6) if scores else 0,
-                        "min_fitness_score": round(min(scores), 6) if scores else 0,
-                        "avg_fitness_score": round(sum(scores) / len(scores), 6) if scores else 0
+                        "phenotype_name": cpd_names.get(cpd_id, cpd_id),
+                        "association_sources": ";".join(sorted(assoc["sources"])),
+                        "gapfill_reactions": gf_rxns,
+                        "model_pred_reactions": mp_rxns,
+                        "model_pred_max_flux": round(max(model_fluxes), 6) if model_fluxes else 0,
+                        "fitness_match": fitness_match,
+                        "fitness_max": fitness_max,
+                        "fitness_min": fitness_min,
+                        "fitness_avg": fitness_avg,
+                        "fitness_count": fitness_count
                     })
+
+        # Add experiment-only genomes to Table 2
+        # These are genomes in experimental_data.json that have no phenosim data
+        # phenosim_genome_ids already built above when collecting phenosim_items
+        exp_only_count = 0
+        for exp_genome_id, exp_cpds in genome_experiment_data.items():
+            if exp_genome_id in phenosim_genome_ids:
+                continue
+            for cpd_id, exp_info in exp_cpds.items():
+                genome_phenotype_rows.append({
+                    "genome_id": exp_genome_id,
+                    "phenotype_id": cpd_id,
+                    "phenotype_name": cpd_names.get(cpd_id, cpd_id),
+                    "class": "",
+                    "simulated_objective": 0,
+                    "observed_objective": exp_info["growth"],
+                    "gap_count": 0,
+                    "gapfilled_reactions": "",
+                    "reaction_count": 0,
+                    "transports_added": "",
+                    "closest_experimental_data": f"{exp_info['source']}:{'growth' if exp_info['growth'] else 'no_growth'}",
+                    "source": "experiment"
+                })
+                exp_only_count += 1
+        if exp_only_count:
+            print(f"Added {exp_only_count} experiment-only phenotype records from {len(genome_experiment_data) - len(phenosim_genome_ids & set(genome_experiment_data.keys()))} genomes")
 
         # Write TSV files
         if model_performance_rows:
             df = pd.DataFrame(model_performance_rows)
-            df.to_csv(os.path.join(phenotypes_dir, "model_performance.tsv"), sep="\t", index=False)
+            df.to_csv(os.path.join(output_dir, "model_performance.tsv"), sep="\t", index=False)
             print(f"Saved model_performance.tsv with {len(df)} genomes")
 
         if genome_phenotype_rows:
             df = pd.DataFrame(genome_phenotype_rows)
-            df.to_csv(os.path.join(phenotypes_dir, "genome_phenotypes.tsv"), sep="\t", index=False)
+            df.to_csv(os.path.join(output_dir, "genome_phenotypes.tsv"), sep="\t", index=False)
             print(f"Saved genome_phenotypes.tsv with {len(df)} records")
 
         if gene_phenotype_rows:
             df = pd.DataFrame(gene_phenotype_rows)
-            df.to_csv(os.path.join(phenotypes_dir, "gene_phenotypes.tsv"), sep="\t", index=False)
+            df.to_csv(os.path.join(output_dir, "gene_phenotypes.tsv"), sep="\t", index=False)
             print(f"Saved gene_phenotypes.tsv with {len(df)} records")
         else:
-            print("No gene-phenotype associations found in phenosim data")
+            print("No gene-phenotype associations found")
 
-        print(f"Built phenotype tables in {phenotypes_dir}")
+        print(f"Built phenotype tables in {output_dir}")
 
-    def build_model_tables(self, database_path, model_path):
-        #TODO: Claude - write code here that loads the model data from model_path (e.g.)
-        pass
+    def add_model_data_to_genome_table(self, database_path=None, model_data_dir=None):
+        """
+        Add model-related data to the genome table in the SQLite database,
+        or write to TSV if database_path is None.
+
+        Reads *_data.json files produced by run_model_reconstruction and adds
+        columns: model_reactions, model_metabolites, model_genes, genome_class,
+        energy_gapfill, gs_gapfill, pyruvate_yield.
+
+        Args:
+            database_path: Path to the SQLite database. If None, writes a
+                           genome_model_data.tsv file to model_data_dir instead.
+            model_data_dir: Directory containing *_data.json files.
+                            If None, uses self.directory + "/models/"
+        """
+        if model_data_dir is None:
+            model_data_dir = os.path.join(self.directory, "models")
+
+        data_files = []
+        if os.path.isdir(model_data_dir):
+            data_files = [f for f in os.listdir(model_data_dir) if f.endswith('_data.json')]
+
+        if not data_files:
+            print(f"No model data files found in {model_data_dir}")
+            return
+
+        # Collect rows from all model data files
+        rows = []
+        for data_file in data_files:
+            filepath = os.path.join(model_data_dir, data_file)
+            try:
+                with open(filepath) as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Warning: Could not read {data_file}: {e}")
+                continue
+
+            if not data.get('success', False):
+                continue
+
+            model_info = data.get('model_info', {})
+            genome_id = model_info.get('model_id', data_file.replace('_data.json', ''))
+
+            # Parse pyruvate yield from growth field (format: "Carbon-Pyruvic-Acid:0.1428...")
+            growth_str = str(model_info.get('growth', ''))
+            pyruvate_yield = 0.0
+            if ':' in growth_str:
+                try:
+                    pyruvate_yield = float(growth_str.split(':')[1])
+                except (ValueError, IndexError):
+                    pyruvate_yield = 0.0
+
+            rows.append({
+                'genome_id': genome_id,
+                'model_reactions': model_info.get('num_reactions', 0),
+                'model_metabolites': model_info.get('num_metabolites', 0),
+                'model_genes': model_info.get('num_genes', 0),
+                'genome_class': model_info.get('genome_class', ''),
+                'energy_gapfill': model_info.get('core_gapfill', 0),
+                'gs_gapfill': model_info.get('gs_gapfill', 0),
+                'pyruvate_yield': pyruvate_yield
+            })
+
+        if not rows:
+            print("No valid model data found")
+            return
+
+        # TSV output mode
+        if database_path is None:
+            df = pd.DataFrame(rows)
+            tsv_path = os.path.join(model_data_dir, "genome_model_data.tsv")
+            df.to_csv(tsv_path, sep='\t', index=False)
+            print(f"Saved genome model data for {len(df)} genomes to {tsv_path}")
+            return
+
+        # SQLite output mode
+        conn = sqlite3.connect(database_path)
+        cursor = conn.cursor()
+
+        # Add missing columns to genome table
+        cursor.execute("PRAGMA table_info(genome)")
+        existing_cols = {row[1] for row in cursor.fetchall()}
+
+        new_columns = {
+            'model_reactions': 'INTEGER',
+            'model_metabolites': 'INTEGER',
+            'model_genes': 'INTEGER',
+            'genome_class': 'TEXT',
+            'energy_gapfill': 'INTEGER',
+            'gs_gapfill': 'INTEGER',
+            'pyruvate_yield': 'REAL'
+        }
+
+        for col_name, col_type in new_columns.items():
+            if col_name not in existing_cols:
+                cursor.execute(f"ALTER TABLE genome ADD COLUMN {col_name} {col_type}")
+
+        updated_count = 0
+        for row in rows:
+            cursor.execute("""
+                UPDATE genome SET
+                    model_reactions = ?,
+                    model_metabolites = ?,
+                    model_genes = ?,
+                    genome_class = ?,
+                    energy_gapfill = ?,
+                    gs_gapfill = ?,
+                    pyruvate_yield = ?
+                WHERE id = ?
+            """, (
+                row['model_reactions'],
+                row['model_metabolites'],
+                row['model_genes'],
+                row['genome_class'],
+                row['energy_gapfill'],
+                row['gs_gapfill'],
+                row['pyruvate_yield'],
+                row['genome_id']
+            ))
+
+            if cursor.rowcount > 0:
+                updated_count += 1
+                print(f"  Updated genome '{row['genome_id']}' with model data")
+            else:
+                print(f"  Warning: Genome '{row['genome_id']}' not found in genome table")
+
+        conn.commit()
+        conn.close()
+        print(f"Model data added to genome table for {updated_count} genomes in {database_path}")
+
+
+    def build_model_tables(self, database_path=None, model_path=None):
+        """
+        Create genome_reactions table and update feature tables with reaction data.
+
+        Reads model data JSON file(s) and creates a genome_reactions table in the
+        SQLite database. Also updates genome_features and pan_genome_features tables
+        with per-gene reaction associations and flux/class data.
+
+        Args:
+            database_path: Path to the SQLite database. If None, writes TSV files
+                           to the same directory as model_path instead.
+            model_path: Path to a *_data.json file or directory containing them.
+                        If None, uses self.directory + "/models/"
+        """
+        if model_path is None:
+            model_path = os.path.join(self.directory, "models")
+
+        # Collect model data files
+        data_files = []
+        if os.path.isdir(model_path):
+            data_files = [os.path.join(model_path, f)
+                          for f in os.listdir(model_path) if f.endswith('_data.json')]
+        elif os.path.isfile(model_path):
+            data_files = [model_path]
+
+        if not data_files:
+            print(f"No model data files found at {model_path}")
+            return
+
+        all_reaction_rows = []
+        # (genome_id, gene_id) -> aggregated reaction data
+        all_gene_data = {}
+
+        for filepath in data_files:
+            try:
+                with open(filepath) as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Warning: Could not read {filepath}: {e}")
+                continue
+
+            if not data.get('success', False):
+                continue
+
+            model_info = data.get('model_info', {})
+            genome_id = model_info.get('model_id', '')
+
+            # Build metabolite ID -> name lookup
+            met_names = {}
+            for met in data.get('metabolites', []):
+                met_names[met['id']] = met.get('name', met['id'])
+
+            # Build gapfilling status lookup per reaction
+            gf_status = {}
+            gapfilled = data.get('gapfilled_reactions', {})
+            for rxn_id in gapfilled.get('core', []):
+                gf_status[rxn_id] = 'core'
+            for rxn_id in gapfilled.get('rich_media_essential', []):
+                if rxn_id not in gf_status:
+                    gf_status[rxn_id] = 'rich'
+            for rxn_id in gapfilled.get('minimal_media', []):
+                if rxn_id not in gf_status:
+                    gf_status[rxn_id] = 'minimal'
+
+            # Get flux analysis data
+            flux = data.get('flux_analysis', {})
+            minimal_fluxes = flux.get('minimal_media', {}).get('pfba_fluxes', {})
+            minimal_classes = flux.get('minimal_media', {}).get('fva_classes', {})
+            rich_fluxes = flux.get('rich_media', {}).get('pfba_fluxes', {})
+            rich_classes = flux.get('rich_media', {}).get('fva_classes', {})
+
+            # Process each reaction
+            for rxn in data.get('reactions', []):
+                raw_rxn_id = rxn['id']
+                rxn_id = re.sub(r'_[a-z]\d+$', '', raw_rxn_id)
+
+                # Build equation with metabolite names by replacing IDs
+                equation_ids = rxn.get('reaction', '')
+                equation_names = equation_ids
+                for met_id, met_name in met_names.items():
+                    equation_names = equation_names.replace(met_id, met_name)
+
+                # Determine directionality from bounds
+                lb = rxn.get('lower_bound', 0)
+                ub = rxn.get('upper_bound', 0)
+                if lb < 0 and ub > 0:
+                    directionality = 'reversible'
+                elif lb >= 0 and ub > 0:
+                    directionality = 'forward'
+                elif lb < 0 and ub <= 0:
+                    directionality = 'reverse'
+                else:
+                    directionality = 'blocked'
+
+                all_reaction_rows.append({
+                    'genome_id': genome_id,
+                    'reaction_id': rxn_id,
+                    'genes': rxn.get('gene_reaction_rule', ''),
+                    'equation_names': equation_names,
+                    'equation_ids': equation_ids,
+                    'directionality': directionality,
+                    'upper_bound': ub,
+                    'lower_bound': lb,
+                    'gapfilling_status': gf_status.get(raw_rxn_id, gf_status.get(rxn_id, 'none')),
+                    'rich_media_flux': rich_fluxes.get(raw_rxn_id, 0.0),
+                    'rich_media_class': rich_classes.get(raw_rxn_id, ''),
+                    'minimal_media_flux': minimal_fluxes.get(raw_rxn_id, 0.0),
+                    'minimal_media_class': minimal_classes.get(raw_rxn_id, '')
+                })
+
+                # Parse gene IDs from gene_reaction_rule
+                gene_rule = rxn.get('gene_reaction_rule', '')
+                if gene_rule:
+                    tokens = gene_rule.replace('(', ' ').replace(')', ' ').split()
+                    gene_ids = set(t for t in tokens if t not in ('and', 'or'))
+                    for gene_id in gene_ids:
+                        key = (genome_id, gene_id)
+                        if key not in all_gene_data:
+                            all_gene_data[key] = {
+                                'reactions': [],
+                                'rich_fluxes': [],
+                                'rich_classes': [],
+                                'minimal_fluxes': [],
+                                'minimal_classes': []
+                            }
+                        all_gene_data[key]['reactions'].append(rxn_id)
+                        all_gene_data[key]['rich_fluxes'].append(abs(rich_fluxes.get(raw_rxn_id, 0.0)))
+                        all_gene_data[key]['rich_classes'].append(rich_classes.get(raw_rxn_id, ''))
+                        all_gene_data[key]['minimal_fluxes'].append(abs(minimal_fluxes.get(raw_rxn_id, 0.0)))
+                        all_gene_data[key]['minimal_classes'].append(minimal_classes.get(raw_rxn_id, ''))
+
+            print(f"Processed {len(data.get('reactions', []))} reactions from {os.path.basename(filepath)}")
+
+        # FVA class priority: essential > variable > blocked
+        class_priority = {
+            'essential_forward': 3, 'essential_reverse': 3,
+            'forward_only': 2, 'reverse_only': 2, 'reversible': 2,
+            'blocked': 1, '': 0
+        }
+
+        def most_constrained_class(classes):
+            best = ''
+            best_priority = 0
+            for c in classes:
+                p = class_priority.get(c, 0)
+                if p > best_priority:
+                    best_priority = p
+                    best = c
+            if best in ('essential_forward', 'essential_reverse'):
+                return 'essential'
+            elif best in ('forward_only', 'reverse_only', 'reversible'):
+                return 'variable'
+            elif best == 'blocked':
+                return 'blocked'
+            return best
+
+        # Build per-gene aggregated rows
+        gene_rows = []
+        for (genome_id, gene_id), gdata in all_gene_data.items():
+            gene_rows.append({
+                'genome_id': genome_id,
+                'gene_id': gene_id,
+                'reaction': ';'.join(sorted(set(gdata['reactions']))),
+                'rich_media_flux': max(gdata['rich_fluxes']) if gdata['rich_fluxes'] else 0.0,
+                'rich_media_class': most_constrained_class(gdata['rich_classes']),
+                'minimal_media_flux': max(gdata['minimal_fluxes']) if gdata['minimal_fluxes'] else 0.0,
+                'minimal_media_class': most_constrained_class(gdata['minimal_classes'])
+            })
+
+        # TSV output mode
+        if database_path is None:
+            output_dir = model_path if os.path.isdir(model_path) else os.path.dirname(model_path)
+
+            if all_reaction_rows:
+                df = pd.DataFrame(all_reaction_rows)
+                rxn_path = os.path.join(output_dir, "genome_reactions.tsv")
+                df.to_csv(rxn_path, sep='\t', index=False)
+                print(f"Saved genome_reactions.tsv with {len(df)} rows to {rxn_path}")
+
+            if gene_rows:
+                df = pd.DataFrame(gene_rows)
+                gene_path = os.path.join(output_dir, "gene_reaction_data.tsv")
+                df.to_csv(gene_path, sep='\t', index=False)
+                print(f"Saved gene_reaction_data.tsv with {len(df)} rows to {gene_path}")
+
+            return
+
+        # SQLite output mode
+        conn = sqlite3.connect(database_path)
+
+        # Write genome_reactions table
+        if all_reaction_rows:
+            df = pd.DataFrame(all_reaction_rows)
+            df.to_sql('genome_reactions', conn, if_exists='replace', index=False)
+            print(f"Saved genome_reactions table with {len(df)} rows")
+
+        # Update genome_features and pan_genome_features tables
+        cursor = conn.cursor()
+        for table_name in ['genome_features', 'pan_genome_features']:
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+            if not cursor.fetchone():
+                continue
+
+            # Add new columns if they don't exist
+            cursor.execute(f"PRAGMA table_info([{table_name}])")
+            existing_cols = {row[1] for row in cursor.fetchall()}
+
+            new_cols = {
+                'reaction': 'TEXT',
+                'rich_media_flux': 'REAL',
+                'rich_media_class': 'TEXT',
+                'minimal_media_flux': 'REAL',
+                'minimal_media_class': 'TEXT'
+            }
+
+            for col_name, col_type in new_cols.items():
+                if col_name not in existing_cols:
+                    cursor.execute(f"ALTER TABLE [{table_name}] ADD COLUMN [{col_name}] {col_type}")
+
+            # Determine the feature ID column name
+            cursor.execute(f"PRAGMA table_info([{table_name}])")
+            cols = [row[1] for row in cursor.fetchall()]
+            feature_col = 'feature_id' if 'feature_id' in cols else 'id'
+            has_genome_id = 'genome_id' in cols
+
+            # Update each gene's reaction data
+            update_count = 0
+            for grow in gene_rows:
+                if has_genome_id:
+                    cursor.execute(f"""
+                        UPDATE [{table_name}] SET
+                            reaction = ?,
+                            rich_media_flux = ?,
+                            rich_media_class = ?,
+                            minimal_media_flux = ?,
+                            minimal_media_class = ?
+                        WHERE [{feature_col}] = ? AND genome_id = ?
+                    """, (grow['reaction'], grow['rich_media_flux'], grow['rich_media_class'],
+                          grow['minimal_media_flux'], grow['minimal_media_class'],
+                          grow['gene_id'], grow['genome_id']))
+                else:
+                    cursor.execute(f"""
+                        UPDATE [{table_name}] SET
+                            reaction = ?,
+                            rich_media_flux = ?,
+                            rich_media_class = ?,
+                            minimal_media_flux = ?,
+                            minimal_media_class = ?
+                        WHERE [{feature_col}] = ?
+                    """, (grow['reaction'], grow['rich_media_flux'], grow['rich_media_class'],
+                          grow['minimal_media_flux'], grow['minimal_media_class'],
+                          grow['gene_id']))
+
+                update_count += cursor.rowcount
+
+            conn.commit()
+            print(f"Updated {update_count} rows in {table_name} with reaction data")
+
+        conn.close()
+        print(f"Model tables built in {database_path}")
 
     def pipeline_build_sqllite_db(self):
         """
@@ -745,7 +1258,7 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
         except Exception as e:
             print(f"Warning: Failed to save KBase report: {e}")
 
-def run_phenotype_simulation(model_filename,output_filename,max_phenotypes,kbversion):
+def run_phenotype_simulation(model_filename,output_filename,data_path,max_phenotypes,kbversion):
     """
     Worker function for parallel phenotype simulation.
     This runs in a separate process with its own memory space.
@@ -764,7 +1277,7 @@ def run_phenotype_simulation(model_filename,output_filename,max_phenotypes,kbver
     mdlutl = MSModelUtil(model)
 
     #Loading the phenotype set from the reference path
-    filename = "/kb/module/data/full_phenotype_set.json"
+    filename = data_path + "/full_phenotype_set.json"
     with open(filename) as f:
         phenoset_data = json.load(f)
     #Setting max phenotypes if specified in the work item
@@ -871,15 +1384,15 @@ def run_model_reconstruction(input_filename, output_filename, classifier_dir,kbv
     ms_features = []
     for _, gene in gene_df.iterrows():
         if is_simple_format:
-            # Simple format: columns are 'id' and 'function'
-            # 'function' is pipe-delimited list of RAST descriptions
+            # Simple format: columns are 'id' and 'functions'
+            # 'functions' is semicolon-delimited list of RAST descriptions
             gene_id_val = gene.get('id', '')
             if pd.notna(gene_id_val) and gene_id_val:
                 feature = MSFeature(str(gene_id_val), '')  # No protein sequence in simple format
-                func_col = gene.get('function', '')
+                func_col = gene.get('functions', '')
                 if pd.notna(func_col) and func_col:
-                    # Split on pipe delimiter for multiple RAST functions
-                    for func_desc in str(func_col).split('|'):
+                    # Split on RAST multi-role delimiters: ; @ /
+                    for func_desc in re.split(r"\s*;\s+|\s+[\@\/]\s+", str(func_col)):
                         func_desc = func_desc.strip()
                         if func_desc:
                             feature.add_ontology_term('RAST', func_desc)
@@ -892,10 +1405,10 @@ def run_model_reconstruction(input_filename, output_filename, classifier_dir,kbv
                 feature = MSFeature(str(gene_id_val), str(protein))
 
                 # Parse plain functions column for RAST descriptions
-                # Format: "Threonine synthase (EC 4.2.3.1)" or "Func1;Func2"
                 func_col = gene.get('functions', '')
                 if pd.notna(func_col) and func_col:
-                    for func_desc in str(func_col).split(';'):
+                    # Split on RAST multi-role delimiters: ; @ /
+                    for func_desc in re.split(r"\s*;\s+|\s+[\@\/]\s+", str(func_col)):
                         func_desc = func_desc.strip()
                         if func_desc:
                             feature.add_ontology_term('RAST', func_desc)
@@ -918,6 +1431,15 @@ def run_model_reconstruction(input_filename, output_filename, classifier_dir,kbv
 
     genome.add_features(ms_features)
 
+    # Diagnostic: count features with RAST terms
+    rast_count = sum(1 for f in genome.features if 'RAST' in f.ontology_terms and f.ontology_terms['RAST'])
+    print(f'  Genome {genome_id}: {len(genome.features)} features, {rast_count} with RAST annotations')
+    if rast_count == 0:
+        return {
+            'success': False,
+            'error': f"No RAST annotations found in {input_filename}. Check that the TSV 'functions' column is being read correctly."
+        }
+
     # Load classifier
     genome_classifier = worker_util.get_classifier(classifier_dir)
 
@@ -937,10 +1459,13 @@ def run_model_reconstruction(input_filename, output_filename, classifier_dir,kbv
     if mdlutl is None:
         return {
             'success': False,
-            'error': f"Model build returned None: {current_output.get('Comments', ['Unknown'])}"
+            'error': f"Model build returned None: {current_output.get('Comments', ['Unknown']) if current_output else ['Unknown']}"
         }
 
     model = mdlutl.model
+
+    # Save model before gapfilling so it's available even if gapfilling fails
+    cobra.io.save_json_model(model, output_filename+"_cobra.json")
 
     # Gapfill if media specified
     gf_rxns = 0
@@ -956,10 +1481,27 @@ def run_model_reconstruction(input_filename, output_filename, classifier_dir,kbv
         minimum_objective=0.01,
         gapfilling_mode="Sequential",
     )
-    gf_rxns = gf_output.get('GS GF', 0)
-    growth = gf_output.get('Growth', 'Unknown')
+    if gf_output is not None:
+        gf_rxns = gf_output.get('GS GF', 0)
+        growth = gf_output.get('Growth', 'Unknown')
+    else:
+        gf_output, _, _, _ = worker_util.gapfill_metabolic_model(
+            mdlutl=mdlutl,
+            genome=genome,
+            media_objs=[gapfill_media],
+            templates=[model.template],
+            atp_safe=False,
+            objective='bio1',
+            minimum_objective=0.01,
+            gapfilling_mode="Sequential",
+        )
+        if gf_output is not None:
+            gf_rxns = gf_output.get('GS GF', 0)
+            growth = gf_output.get('Growth', 'Unknown')
+        else:
+            print(f"  Warning: Gapfilling returned None for {genome_id}")
 
-    # Save model
+    # Save model (re-save after gapfilling if it succeeded)
     cobra.io.save_json_model(model, output_filename+"_cobra.json")
 
     genome_class = current_output.get('Class', 'Unknown')
@@ -974,17 +1516,35 @@ def run_model_reconstruction(input_filename, output_filename, classifier_dir,kbv
     minimal_gf_rxns = []
     rich_gf_rxns = []
 
-    # Get gapfilled reactions from model attributes
-    if hasattr(mdlutl, 'attributes') and 'gapfilling' in mdlutl.attributes:
-        for gf_entry in mdlutl.attributes['gapfilling']:
-            media_id = gf_entry.get('media', {}).get('id', '')
-            for rxn_id in gf_entry.get('reactions', []):
-                if 'core' in media_id.lower() or gf_entry.get('target', '') == 'core':
-                    if rxn_id not in core_gf_rxns:
+    # Identify gapfilled reactions: no gene association and not
+    # biomass, exchange, demand, or sink reactions
+    all_gf_rxn_ids = {
+        rxn.id for rxn in model.reactions
+        if not rxn.gene_reaction_rule
+        and not any(rxn.id.startswith(p) for p in ('bio', 'EX', 'DM', 'SK'))
+    }
+
+    # Categorize using integrated gapfilling solutions from MSModelUtil
+    categorized = set()
+    if hasattr(mdlutl, 'integrated_gapfillings'):
+        for gf_entry in mdlutl.integrated_gapfillings:
+            media_obj = gf_entry.get('media', None)
+            media_id = media_obj.id if media_obj and hasattr(media_obj, 'id') else ''
+            rxn_ids = list(gf_entry.get('new', {}).keys()) + list(gf_entry.get('reversed', {}).keys())
+            is_core = 'atp' in media_id.lower()
+            for rxn_id in rxn_ids:
+                if rxn_id in all_gf_rxn_ids and rxn_id not in categorized:
+                    categorized.add(rxn_id)
+                    if is_core:
                         core_gf_rxns.append(rxn_id)
-                else:
-                    if rxn_id not in minimal_gf_rxns:
+                    else:
                         minimal_gf_rxns.append(rxn_id)
+
+    # Any gapfilled reactions not in integrated_gapfillings default to minimal
+    for rxn_id in sorted(all_gf_rxn_ids - categorized):
+        minimal_gf_rxns.append(rxn_id)
+
+    print(f"  Gapfilled reactions: {len(all_gf_rxn_ids)} total, {len(core_gf_rxns)} core, {len(minimal_gf_rxns)} minimal media")
 
     # Run FVA in rich media to identify essential gapfilled reactions
     all_gf_rxns = list(set(core_gf_rxns + minimal_gf_rxns))
@@ -1138,6 +1698,8 @@ def run_model_reconstruction(input_filename, output_filename, classifier_dir,kbv
     # Save to JSON file
     with open(output_filename + "_data.json", 'w') as f:
         json.dump(output_data, f, indent=2)
+
+    return output_data
 
 def generate_ontology_tables(
     input_database: str,

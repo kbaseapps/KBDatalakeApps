@@ -2677,7 +2677,7 @@
         },
         {
             "id": "cpd00065",
-            "name": "cpd00065",
+            "name": "L-Tryptophan",
             "source": "AtLeaf_Biolog_Fitness",
             "source_id": "CHEBI:16828_KBaseMedia/Carbon-cpd00065",
             "chebi_ids": [
@@ -2989,7 +2989,7 @@
         },
         {
             "id": "cpd00069",
-            "name": "cpd00069",
+            "name": "L-Tyrosine",
             "source": "AtLeaf_Biolog",
             "source_id": "CHEBI:17895_KBaseMedia/Carbon-cpd00069",
             "chebi_ids": [
@@ -3923,7 +3923,7 @@
         },
         {
             "id": "cpd00084",
-            "name": "cpd00084",
+            "name": "L-Cysteine",
             "source": "AtLeaf_Biolog",
             "source_id": "CHEBI:17561_KBaseMedia/Carbon-cpd00084",
             "chebi_ids": [
@@ -5170,7 +5170,7 @@
         },
         {
             "id": "cpd00116",
-            "name": "cpd00116",
+            "name": "Methanol",
             "source": "AtLeaf_Biolog",
             "source_id": "CHEBI:17790_KBaseMedia/Carbon-cpd00116",
             "chebi_ids": [
@@ -7512,7 +7512,7 @@
         },
         {
             "id": "cpd00153",
-            "name": "cpd00153",
+            "name": "Benzoate",
             "source": "AtLeaf_Biolog_Fitness",
             "source_id": "CHEBI:16150_CHEBI:30746_KBaseMedia/Carbon-cpd00153",
             "chebi_ids": [
@@ -9850,7 +9850,7 @@
         },
         {
             "id": "cpd00197",
-            "name": "cpd00197",
+            "name": "Protocatechuate",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:36062_KBaseMedia/Carbon-cpd00197",
             "chebi_ids": [
@@ -10475,7 +10475,7 @@
         },
         {
             "id": "cpd00217",
-            "name": "cpd00217",
+            "name": "Brachiose",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:28189_KBaseMedia/Carbon-cpd00217",
             "chebi_ids": [
@@ -11877,7 +11877,7 @@
         },
         {
             "id": "cpd00274",
-            "name": "cpd00274",
+            "name": "Citrulline",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:16349_KBaseMedia/Carbon-cpd00274",
             "chebi_ids": [
@@ -12502,7 +12502,7 @@
         },
         {
             "id": "cpd00294",
-            "name": "cpd00294",
+            "name": "dAMP",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:17713_KBaseMedia/Carbon-cpd00294",
             "chebi_ids": [
@@ -13750,7 +13750,7 @@
         },
         {
             "id": "cpd00363",
-            "name": "cpd00363",
+            "name": "Ethanol",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:16236_KBaseMedia/Carbon-cpd00363",
             "chebi_ids": [
@@ -14062,7 +14062,7 @@
         },
         {
             "id": "cpd00367",
-            "name": "cpd00367",
+            "name": "Cytidine",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:17562_KBaseMedia/Carbon-cpd00367",
             "chebi_ids": [
@@ -14374,7 +14374,7 @@
         },
         {
             "id": "cpd00379",
-            "name": "cpd00379",
+            "name": "Glutarate",
             "source": "ANL Biolog_Biolog",
             "source_id": "CHEBI:17859_KBaseMedia/Carbon-cpd00379",
             "chebi_ids": [
@@ -15464,7 +15464,7 @@
         },
         {
             "id": "cpd00430",
-            "name": "cpd00430",
+            "name": "PACT",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:30745_KBaseMedia/Carbon-cpd00430",
             "chebi_ids": [
@@ -16088,7 +16088,7 @@
         },
         {
             "id": "cpd00458",
-            "name": "cpd00458",
+            "name": "Coniferol",
             "source": "AtLeaf_Biolog",
             "source_id": "CHEBI:17745_KBaseMedia/Carbon-cpd00458",
             "chebi_ids": [
@@ -16710,7 +16710,7 @@
         },
         {
             "id": "cpd00503",
-            "name": "cpd00503",
+            "name": "D-Fructose 2,6-bisphosphate",
             "source": "AtLeaf_Biolog_Fitness_PMI",
             "source_id": "CHEBI:28602_KBaseMedia/Carbon-cpd00503",
             "chebi_ids": [
@@ -16866,7 +16866,7 @@
         },
         {
             "id": "cpd00536",
-            "name": "cpd00536",
+            "name": "Oleate",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:16196_KBaseMedia/Carbon-cpd00536",
             "chebi_ids": [
@@ -17022,7 +17022,7 @@
         },
         {
             "id": "cpd00549",
-            "name": "cpd00549",
+            "name": "D-Lysine",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:16855_KBaseMedia/Carbon-cpd00549",
             "chebi_ids": [
@@ -17334,7 +17334,7 @@
         },
         {
             "id": "cpd00561",
-            "name": "cpd00561",
+            "name": "Vanillin",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:18346_KBaseMedia/Carbon-cpd00561",
             "chebi_ids": [
@@ -17490,7 +17490,7 @@
         },
         {
             "id": "cpd00571",
-            "name": "cpd00571",
+            "name": "Glucarate",
             "source": "Biolog_LitData_PMI",
             "source_id": "CHEBI:16002_KBaseMedia/Carbon-cpd00571",
             "chebi_ids": [
@@ -18112,7 +18112,7 @@
         },
         {
             "id": "cpd00597",
-            "name": "cpd00597",
+            "name": "Valerate",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:17418_KBaseMedia/Carbon-cpd00597",
             "chebi_ids": [
@@ -18424,7 +18424,7 @@
         },
         {
             "id": "cpd00604",
-            "name": "cpd00604",
+            "name": "4-Coumarate",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:32374_KBaseMedia/Carbon-cpd00604",
             "chebi_ids": [
@@ -18580,7 +18580,7 @@
         },
         {
             "id": "cpd00607",
-            "name": "cpd00607",
+            "name": "Citramalate",
             "source": "Biolog_PMI",
             "source_id": "CHEBI:15584_KBaseMedia/Carbon-cpd00607",
             "chebi_ids": [
@@ -19202,7 +19202,7 @@
         },
         {
             "id": "cpd00654",
-            "name": "cpd00654",
+            "name": "Deoxycytidine",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:15698_KBaseMedia/Carbon-cpd00654",
             "chebi_ids": [
@@ -20757,7 +20757,7 @@
         },
         {
             "id": "cpd01022",
-            "name": "cpd01022",
+            "name": "Lactate",
             "source": "ANL Biolog_Biolog",
             "source_id": "CHEBI:24996_KBaseMedia/Carbon-cpd01022",
             "chebi_ids": [
@@ -21225,7 +21225,7 @@
         },
         {
             "id": "cpd01059",
-            "name": "cpd01059",
+            "name": "Ferulate",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:193350_KBaseMedia/Carbon-cpd01059",
             "chebi_ids": [
@@ -21691,7 +21691,7 @@
         },
         {
             "id": "cpd01080",
-            "name": "cpd01080",
+            "name": "ocdca",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:85983_KBaseMedia/Carbon-cpd01080",
             "chebi_ids": [
@@ -22159,7 +22159,7 @@
         },
         {
             "id": "cpd01126",
-            "name": "cpd01126",
+            "name": "Nonanoate",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:29019_KBaseMedia/Carbon-cpd01126",
             "chebi_ids": [
@@ -23407,7 +23407,7 @@
         },
         {
             "id": "cpd01329",
-            "name": "cpd01329",
+            "name": "Maltohexaose",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:27445_KBaseMedia/Carbon-cpd01329",
             "chebi_ids": [
@@ -23563,7 +23563,7 @@
         },
         {
             "id": "cpd01354",
-            "name": "cpd01354",
+            "name": "beta-Lactose",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:36218_KBaseMedia/Carbon-cpd01354",
             "chebi_ids": [
@@ -23719,7 +23719,7 @@
         },
         {
             "id": "cpd01355",
-            "name": "cpd01355",
+            "name": "beta-Maltose",
             "source": "ANL Biolog_AtLeaf_Biolog_Fitness_LitData_PMI",
             "source_id": "CHEBI:17306_KBaseMedia/Carbon-cpd01355",
             "chebi_ids": [
@@ -23875,7 +23875,7 @@
         },
         {
             "id": "cpd01356",
-            "name": "cpd01356",
+            "name": "(R)-Amygdalin",
             "source": "Biolog_PMI",
             "source_id": "CHEBI:27613_KBaseMedia/Carbon-cpd01356",
             "chebi_ids": [
@@ -24187,7 +24187,7 @@
         },
         {
             "id": "cpd01397",
-            "name": "cpd01397",
+            "name": "Laminariaceae",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:18411_KBaseMedia/Carbon-cpd01397",
             "chebi_ids": [
@@ -24343,7 +24343,7 @@
         },
         {
             "id": "cpd01399",
-            "name": "cpd01399",
+            "name": "Maltotetraose",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:28460_KBaseMedia/Carbon-cpd01399",
             "chebi_ids": [
@@ -24499,7 +24499,7 @@
         },
         {
             "id": "cpd01407",
-            "name": "cpd01407",
+            "name": "Volemulose",
             "source": "Biolog_PMI",
             "source_id": "CHEBI:32488_KBaseMedia/Carbon-cpd01407",
             "chebi_ids": [
@@ -24965,7 +24965,7 @@
         },
         {
             "id": "cpd01726",
-            "name": "cpd01726",
+            "name": "6-Acetyl-D-glucose",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:17901_KBaseMedia/Carbon-cpd01726",
             "chebi_ids": [
@@ -25121,7 +25121,7 @@
         },
         {
             "id": "cpd01741",
-            "name": "cpd01741",
+            "name": "ddca",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:30805_KBaseMedia/Carbon-cpd01741",
             "chebi_ids": [
@@ -25741,7 +25741,7 @@
         },
         {
             "id": "cpd02023",
-            "name": "cpd02023",
+            "name": "Phosphoguanidinoacetate",
             "source": "AtLeaf_Biolog",
             "source_id": "CHEBI:16034_KBaseMedia/Carbon-cpd02023",
             "chebi_ids": [
@@ -25897,7 +25897,7 @@
         },
         {
             "id": "cpd02143",
-            "name": "cpd02143",
+            "name": "D-Galactono-1,4-lactone",
             "source": "Biolog_LitData_PMI",
             "source_id": "CHEBI:15895_KBaseMedia/Carbon-cpd02143",
             "chebi_ids": [
@@ -26833,7 +26833,7 @@
         },
         {
             "id": "cpd03279",
-            "name": "cpd03279",
+            "name": "Deoxyinosine",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:28997_KBaseMedia/Carbon-cpd03279",
             "chebi_ids": [
@@ -26989,7 +26989,7 @@
         },
         {
             "id": "cpd03480",
-            "name": "cpd03480",
+            "name": "2-Hydroxyphenylacetate",
             "source": "Biolog_PMI",
             "source_id": "CHEBI:28478_KBaseMedia/Carbon-cpd03480",
             "chebi_ids": [
@@ -27299,7 +27299,7 @@
         },
         {
             "id": "cpd03662",
-            "name": "cpd03662",
+            "name": "n-Butanol",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:28885_KBaseMedia/Carbon-cpd03662",
             "chebi_ids": [
@@ -27923,7 +27923,7 @@
         },
         {
             "id": "cpd03846",
-            "name": "cpd03846",
+            "name": "octanoate",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:28837_KBaseMedia/Carbon-cpd03846",
             "chebi_ids": [
@@ -28079,7 +28079,7 @@
         },
         {
             "id": "cpd03847",
-            "name": "cpd03847",
+            "name": "Myristic acid",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:28875_KBaseMedia/Carbon-cpd03847",
             "chebi_ids": [
@@ -28391,7 +28391,7 @@
         },
         {
             "id": "cpd04073",
-            "name": "cpd04073",
+            "name": "Vanillate",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:30816_KBaseMedia/Carbon-cpd04073",
             "chebi_ids": [
@@ -28703,7 +28703,7 @@
         },
         {
             "id": "cpd04533",
-            "name": "cpd04533",
+            "name": "Isoamyl alcohol",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:15837_KBaseMedia/Carbon-cpd04533",
             "chebi_ids": [
@@ -29635,7 +29635,7 @@
         },
         {
             "id": "cpd11461",
-            "name": "cpd11461",
+            "name": "DNA",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:16991_KBaseMedia/Carbon-cpd11461",
             "chebi_ids": [
@@ -30877,7 +30877,7 @@
         },
         {
             "id": "cpd11657",
-            "name": "cpd11657",
+            "name": "Starch",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:28017_KBaseMedia/Carbon-cpd11657",
             "chebi_ids": [
@@ -32427,7 +32427,7 @@
         },
         {
             "id": "cpd15608",
-            "name": "cpd15608",
+            "name": "HPA",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:45571_KBaseMedia/Carbon-cpd15608",
             "chebi_ids": [
@@ -32583,7 +32583,7 @@
         },
         {
             "id": "cpd16586",
-            "name": "cpd16586",
+            "name": "1-Pentanol",
             "source": "Biolog_Fitness",
             "source_id": "CHEBI:44884_KBaseMedia/Carbon-cpd16586",
             "chebi_ids": [
