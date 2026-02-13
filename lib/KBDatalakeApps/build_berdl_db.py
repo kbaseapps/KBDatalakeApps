@@ -586,18 +586,30 @@ def build_genome_features_table(output_dir, conn):
                 total = len(features)
                 print(f"Pangenome cluster assignment: {assigned}/{total} features assigned")
 
-    # --- Reactions from gene_reaction_data.tsv ---
+    # --- Reactions and model data from gene_reaction_data.tsv ---
     gene_rxn_path = os.path.join(output_dir, "models", "gene_reaction_data.tsv")
     if os.path.exists(gene_rxn_path):
         gene_rxn_df = pd.read_csv(gene_rxn_path, sep="\t")
         user_rxn = gene_rxn_df[gene_rxn_df["genome_id"] == user_gid]
         if len(user_rxn) > 0:
-            rxn_map = user_rxn.set_index("gene_id")["reaction"].to_dict()
-            features["reactions"] = features["feature_id"].map(rxn_map)
+            rxn_idx = user_rxn.set_index("gene_id")
+            features["reactions"] = features["feature_id"].map(rxn_idx["reaction"].to_dict())
+            features["rich_media_flux"] = features["feature_id"].map(rxn_idx["rich_media_flux"].to_dict())
+            features["rich_media_class"] = features["feature_id"].map(rxn_idx["rich_media_class"].to_dict())
+            features["minimal_media_flux"] = features["feature_id"].map(rxn_idx["minimal_media_flux"].to_dict())
+            features["minimal_media_class"] = features["feature_id"].map(rxn_idx["minimal_media_class"].to_dict())
         else:
             features["reactions"] = None
+            features["rich_media_flux"] = None
+            features["rich_media_class"] = None
+            features["minimal_media_flux"] = None
+            features["minimal_media_class"] = None
     else:
         features["reactions"] = None
+        features["rich_media_flux"] = None
+        features["rich_media_class"] = None
+        features["minimal_media_flux"] = None
+        features["minimal_media_class"] = None
 
     # Reorder columns to match target schema
     col_order = [
@@ -606,7 +618,9 @@ def build_genome_features_table(output_dir, conn):
         "cog", "ec", "gene_names", "go", "ko", "pfam", "so",
         "uniref_100", "uniref_90", "uniref_50",
         "pangenome_cluster_id", "pangenome_is_core",
-        "psortb", "reactions", "rast_consistency", "other_rast_annotations",
+        "psortb", "reactions", "rich_media_flux", "rich_media_class",
+        "minimal_media_flux", "minimal_media_class",
+        "rast_consistency", "other_rast_annotations",
     ]
     features = features[col_order]
 
@@ -640,6 +654,10 @@ def build_genome_features_table(output_dir, conn):
                         "pangenome_is_core": "BOOLEAN",
                         "psortb": "VARCHAR(255)",
                         "reactions": "TEXT",
+                        "rich_media_flux": "REAL",
+                        "rich_media_class": "VARCHAR(255)",
+                        "minimal_media_flux": "REAL",
+                        "minimal_media_class": "VARCHAR(255)",
                         "rast_consistency": "REAL",
                         "other_rast_annotations": "TEXT",
                     })
@@ -911,12 +929,32 @@ def build_pan_genome_features_table(output_dir, conn):
         return pd.DataFrame()
 
     result_df = pd.DataFrame(all_features)
+
+    # --- Merge model data from gene_reaction_data.tsv ---
+    gene_rxn_path = os.path.join(output_dir, "models", "gene_reaction_data.tsv")
+    if os.path.exists(gene_rxn_path):
+        gene_rxn_df = pd.read_csv(gene_rxn_path, sep="\t")
+        rxn_idx = gene_rxn_df.set_index(["genome_id", "gene_id"])
+        keys = list(zip(result_df["genome_id"], result_df["feature_id"]))
+        for col in ["reaction", "rich_media_flux", "rich_media_class",
+                     "minimal_media_flux", "minimal_media_class"]:
+            result_df[col] = [
+                rxn_idx.loc[k, col] if k in rxn_idx.index else None
+                for k in keys
+            ]
+    else:
+        for col in ["reaction", "rich_media_flux", "rich_media_class",
+                     "minimal_media_flux", "minimal_media_class"]:
+            result_df[col] = None
+
     col_order = [
         "genome_id", "contig_id", "feature_id", "length", "start", "end",
         "strand", "sequence", "sequence_hash", "cluster_id", "is_core",
         "bakta_function", "rast_function", "gene_names",
         "cog", "ec", "ko", "pfam", "go", "so",
         "uniref_100", "uniref_90", "uniref_50",
+        "reaction", "rich_media_flux", "rich_media_class",
+        "minimal_media_flux", "minimal_media_class",
     ]
     result_df = result_df[col_order]
 
@@ -947,6 +985,11 @@ def build_pan_genome_features_table(output_dir, conn):
                          "uniref_100": "VARCHAR(255)",
                          "uniref_90": "VARCHAR(255)",
                          "uniref_50": "VARCHAR(255)",
+                         "reaction": "TEXT",
+                         "rich_media_flux": "REAL",
+                         "rich_media_class": "VARCHAR(255)",
+                         "minimal_media_flux": "REAL",
+                         "minimal_media_class": "VARCHAR(255)",
                      })
 
     try:
@@ -958,6 +1001,36 @@ def build_pan_genome_features_table(output_dir, conn):
 
     print(f"Built 'pan_genome_features' table: {len(result_df)} rows")
     return result_df
+
+
+# ---------------------------------------------------------------------------
+# Table 6: gene_reaction_data
+# ---------------------------------------------------------------------------
+def build_gene_reaction_data_table(output_dir, conn):
+    """
+    Load gene_reaction_data.tsv as a standalone table in the database.
+
+    Columns: genome_id, gene_id, reaction, rich_media_flux, rich_media_class,
+             minimal_media_flux, minimal_media_class
+    """
+    gene_rxn_path = os.path.join(output_dir, "models", "gene_reaction_data.tsv")
+    if not os.path.exists(gene_rxn_path):
+        print("No gene_reaction_data.tsv found, skipping gene_reaction_data table")
+        return pd.DataFrame()
+
+    df = pd.read_csv(gene_rxn_path, sep="\t")
+    df.to_sql("gene_reaction_data", conn, if_exists="replace", index=False,
+              dtype={
+                  "genome_id": "VARCHAR(255) NOT NULL",
+                  "gene_id": "VARCHAR(255) NOT NULL",
+                  "reaction": "TEXT",
+                  "rich_media_flux": "REAL",
+                  "rich_media_class": "VARCHAR(255)",
+                  "minimal_media_flux": "REAL",
+                  "minimal_media_class": "VARCHAR(255)",
+              })
+    print(f"Built 'gene_reaction_data' table: {len(df)} rows")
+    return df
 
 
 # ---------------------------------------------------------------------------
@@ -988,6 +1061,7 @@ def build_berdl_database(output_dir, db_path=None):
         build_genome_features_table(output_dir, conn)
         build_missing_functions_table(output_dir, conn)
         build_pan_genome_features_table(output_dir, conn)
+        build_gene_reaction_data_table(output_dir, conn)
 
         conn.commit()
         print("=" * 60)

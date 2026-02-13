@@ -1,12 +1,14 @@
 import sys
 import os
 import re
+import io
 import sqlite3
 import json
 import uuid
 import shutil
 import hashlib
 from os import path
+from contextlib import redirect_stdout
 
 sys.path = ["/deps/KBUtilLib/src","/deps/cobrakbase","/deps/ModelSEEDpy","/deps/cb_annotation_ontology_api"] + sys.path
 
@@ -1272,83 +1274,85 @@ def run_phenotype_simulation(model_filename,output_filename,data_path,max_phenot
     # Create safe model ID
     genome_id = os.path.splitext(os.path.basename(model_filename))[0]
 
-    # Load model
-    model = cobra.io.load_json_model(model_filename)
-    mdlutl = MSModelUtil(model)
+    # Suppress verbose stdout from modelseedpy library calls
+    with redirect_stdout(io.StringIO()):
+        # Load model
+        model = cobra.io.load_json_model(model_filename)
+        mdlutl = MSModelUtil(model)
 
-    #Loading the phenotype set from the reference path
-    filename = data_path + "/full_phenotype_set.json"
-    with open(filename) as f:
-        phenoset_data = json.load(f)
-    #Setting max phenotypes if specified in the work item
-    if max_phenotypes is not None:
-        phenoset_data["phenotypes"] = phenoset_data["phenotypes"][:max_phenotypes]
-    #Instantiating the phenotype set
-    phenoset = MSGrowthPhenotypes.from_dict(phenoset_data)
+        #Loading the phenotype set from the reference path
+        filename = data_path + "/full_phenotype_set.json"
+        with open(filename) as f:
+            phenoset_data = json.load(f)
+        #Setting max phenotypes if specified in the work item
+        if max_phenotypes is not None:
+            phenoset_data["phenotypes"] = phenoset_data["phenotypes"][:max_phenotypes]
+        #Instantiating the phenotype set
+        phenoset = MSGrowthPhenotypes.from_dict(phenoset_data)
 
-    # Create a minimal util instance for this worker
-    class PhenotypeWorkerUtil(MSReconstructionUtils,MSFBAUtils,MSBiochemUtils):
-        def __init__(self, kbversion):
-            super().__init__(name="PhenotypeWorkerUtil", kbversion=kbversion)
-    pheno_util = PhenotypeWorkerUtil(kbversion=kbversion)
+        # Create a minimal util instance for this worker
+        class PhenotypeWorkerUtil(MSReconstructionUtils,MSFBAUtils,MSBiochemUtils):
+            def __init__(self, kbversion):
+                super().__init__(name="PhenotypeWorkerUtil", kbversion=kbversion)
+        pheno_util = PhenotypeWorkerUtil(kbversion=kbversion)
 
-    # Get template for gapfilling
-    template = pheno_util.get_template(pheno_util.templates["gn"], None)
+        # Get template for gapfilling
+        template = pheno_util.get_template(pheno_util.templates["gn"], None)
 
-    # Retrieve ATP test conditions from the model
-    atpcorrection = MSATPCorrection(mdlutl)
-    atp_tests = atpcorrection.build_tests()
+        # Retrieve ATP test conditions from the model
+        atpcorrection = MSATPCorrection(mdlutl)
+        atp_tests = atpcorrection.build_tests()
 
-    # Create gapfiller with ATP test conditions
-    gapfiller = MSGapfill(
-        mdlutl,
-        default_gapfill_templates=[template],
-        default_target='bio1',
-        minimum_obj=0.01,
-        test_conditions=[atp_tests[0]]
-    )
-    pheno_util.set_media(gapfiller.gfmodelutl, "KBaseMedia/Carbon-Pyruvic-Acid")
+        # Create gapfiller with ATP test conditions
+        gapfiller = MSGapfill(
+            mdlutl,
+            default_gapfill_templates=[template],
+            default_target='bio1',
+            minimum_obj=0.01,
+            test_conditions=[atp_tests[0]]
+        )
+        pheno_util.set_media(gapfiller.gfmodelutl, "KBaseMedia/Carbon-Pyruvic-Acid")
 
-    # Prefilter gapfilling database with ATP test conditions
-    #print("Prefiltering gapfilling database...")
-    #gapfiller.prefilter()
-    #print("Prefiltering complete")
+        # Prefilter gapfilling database with ATP test conditions
+        #print("Prefiltering gapfilling database...")
+        #gapfiller.prefilter()
+        #print("Prefiltering complete")
 
-    # Filter out mass imbalanced (MI) reactions from the gapfill model
-    mi_blocked_count = 0
-    reaction_scores = {}
-    for rxn in gapfiller.gfmodelutl.model.reactions:
-        # Extract the base ModelSEED reaction ID (rxnXXXXX) from the reaction ID
-        if rxn.id not in mdlutl.model.reactions and rxn.id in gapfiller.gfpkgmgr.getpkg("GapfillingPkg").gapfilling_penalties:
-            reaction_scores[rxn.id] = {
-                "<": 10 * gapfiller.gfpkgmgr.getpkg("GapfillingPkg").gapfilling_penalties[rxn.id].get("reverse", 1),
-                ">": 10 * gapfiller.gfpkgmgr.getpkg("GapfillingPkg").gapfilling_penalties[rxn.id].get("forward", 1)
-            }
-        ms_rxn_id = pheno_util.reaction_id_to_msid(rxn.id)
-        if ms_rxn_id:
-            ms_rxn = pheno_util.get_reaction_by_id(ms_rxn_id)
-            if ms_rxn and hasattr(ms_rxn, 'status') and ms_rxn.status and "MI" in ms_rxn.status:
-                reaction_scores[rxn.id] = {"<":1000,">":1000}
-                # Check if status contains "MI" (mass imbalanced)
-                if rxn.id not in mdlutl.model.reactions:
-                    #If reaction is not in model, set bounds to 0
-                    rxn.lower_bound = 0
-                    rxn.upper_bound = 0
-                    mi_blocked_count += 1
+        # Filter out mass imbalanced (MI) reactions from the gapfill model
+        mi_blocked_count = 0
+        reaction_scores = {}
+        for rxn in gapfiller.gfmodelutl.model.reactions:
+            # Extract the base ModelSEED reaction ID (rxnXXXXX) from the reaction ID
+            if rxn.id not in mdlutl.model.reactions and rxn.id in gapfiller.gfpkgmgr.getpkg("GapfillingPkg").gapfilling_penalties:
+                reaction_scores[rxn.id] = {
+                    "<": 10 * gapfiller.gfpkgmgr.getpkg("GapfillingPkg").gapfilling_penalties[rxn.id].get("reverse", 1),
+                    ">": 10 * gapfiller.gfpkgmgr.getpkg("GapfillingPkg").gapfilling_penalties[rxn.id].get("forward", 1)
+                }
+            ms_rxn_id = pheno_util.reaction_id_to_msid(rxn.id)
+            if ms_rxn_id:
+                ms_rxn = pheno_util.get_reaction_by_id(ms_rxn_id)
+                if ms_rxn and hasattr(ms_rxn, 'status') and ms_rxn.status and "MI" in ms_rxn.status:
+                    reaction_scores[rxn.id] = {"<":1000,">":1000}
+                    # Check if status contains "MI" (mass imbalanced)
+                    if rxn.id not in mdlutl.model.reactions:
+                        #If reaction is not in model, set bounds to 0
+                        rxn.lower_bound = 0
+                        rxn.upper_bound = 0
+                        mi_blocked_count += 1
 
-    # Run simulations with gapfilling for zero-growth phenotypes
-    # Note: test_conditions=None since we already ran prefilter
-    results = phenoset.simulate_phenotypes(
-        mdlutl,
-        add_missing_exchanges=True,
-        gapfill_negatives=True,
-        msgapfill=gapfiller,
-        test_conditions=None,
-        ignore_experimental_data=True,
-        annoont=None,
-        growth_threshold=0.01,
-        #reaction_scores=reaction_scores
-    )
+        # Run simulations with gapfilling for zero-growth phenotypes
+        # Note: test_conditions=None since we already ran prefilter
+        results = phenoset.simulate_phenotypes(
+            mdlutl,
+            add_missing_exchanges=True,
+            gapfill_negatives=True,
+            msgapfill=gapfiller,
+            test_conditions=None,
+            ignore_experimental_data=True,
+            annoont=None,
+            growth_threshold=0.01,
+            #reaction_scores=reaction_scores
+        )
 
     output_dir = os.path.dirname(output_filename)
     if output_dir:
