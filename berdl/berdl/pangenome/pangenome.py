@@ -197,12 +197,15 @@ class BERDLPangenome:
             user_to_clade = {f'user_{k}.faa' for k, v in json.load(fh).items() if v == selected_clade_member_id}
 
         # map cluster to fitness
-        m_to_fitness_feature = map_protein_hash_to_fitness_records()
+        (m_to_fitness_feature, m_to_essentiality,
+         essentiality_genome_ids, all_fitness_genome_hashes) = map_protein_hash_to_fitness_records()
         for filename in user_to_clade:
             path_input_genomes = (self.paths.root / '../..' / 'genome').resolve()
             path_genome_faa = path_input_genomes / filename
             input_genome = MSGenome.from_fasta(str(path_genome_faa))
             input_genome_id = path_genome_faa.name[:-4]
             df_input_genome_fitness = create_genome_fitness_table(input_genome, input_genome_id, m_to_r, r_to_m,
-                                                                  m_to_fitness_feature)
+                                                                  m_to_fitness_feature, m_to_essentiality,
+                                                                  essentiality_genome_ids,
+                                                                  all_fitness_genome_hashes)
             df_input_genome_fitness.write_parquet(path_input_genomes / f'{input_genome_id}_fitness.parquet')
