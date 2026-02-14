@@ -302,8 +302,8 @@ Author: chenry
             if os.path.exists('/data/reference_data/berdl_db'):
                 print('berdl:', os.listdir('/data/reference_data/berdl_db'))
 
-        if not skip_annotation:
-            test_annotation(self.kb_kofam, self.kb_bakta, self.kb_psortb, self.rast_client)
+        #if not skip_annotation:
+        #    test_annotation(self.kb_kofam, self.kb_bakta, self.kb_psortb, self.rast_client)
 
         #print('BERDL Token')
         #print(self.get_berdl_token())

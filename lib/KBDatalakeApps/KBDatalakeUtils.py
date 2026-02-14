@@ -793,7 +793,6 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
         conn.close()
         print(f"Model data added to genome table for {updated_count} genomes in {database_path}")
 
-
     def build_model_tables(self, database_path=None, model_path=None):
         """
         Create genome_reactions table and update feature tables with reaction data.
