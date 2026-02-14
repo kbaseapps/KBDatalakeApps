@@ -1785,7 +1785,7 @@ def generate_ontology_tables(
         # =====================================================================
         # STEP 1: Initialize term collection and load RAST mapper
         # =====================================================================
-        ref_path = Path(reference_data_path) / "berdl_db/run_20250819_020438/parquet_files"
+        ref_path = Path(reference_data_path) / "reference_data/berdl_db/run_20250819_020438/parquet_files"
         seed_json_path = ref_path / "seed.json"
 
         print("\n1. Loading RAST → seed.role mapper...")
