@@ -25,7 +25,7 @@ from installed_clients.baseclient import ServerError
 from annotation.annotation import test_annotation, run_rast, run_kofam
 from executor.task_executor import TaskExecutor
 from executor.task import task_rast, task_kofam, task_psortb, task_bakta
-from KBDatalakeApps.KBDatalakeUtils import KBDataLakeUtils
+from KBDatalakeApps.KBDatalakeUtils import KBDataLakeUtils, generate_ontology_tables
 
 # Import KBUtilLib utilities for common functionality
 #from kbutillib import KBWSUtils, KBCallbackUtils, SharedEnvUtils
@@ -360,9 +360,14 @@ Author: chenry
 
         suffix = params.get('suffix', ctx['token'])
         save_models = params.get('save_models', 0)
-
+        input_genome_to_clade = {}
         if not skip_genome_pipeline:
             self.run_genome_pipeline(input_params.resolve())
+            path_user_to_clade_json = Path(self.shared_folder / 'pangenome' / 'user_to_clade.json')
+            if path_user_to_clade_json.exists():
+                print(f'found input genome pangenome assignments: {path_user_to_clade_json}')
+                with open(path_user_to_clade_json, 'r') as fh:
+                    input_genome_to_clade = json.load(fh)
             for genome_ref in genome_refs:
                 info = self.util.get_object_info(genome_ref)
                 path_genome_tsv = Path(self.shared_folder) / "genome" / f'user_{info[1]}_genome.tsv'
@@ -370,6 +375,12 @@ Author: chenry
                 self.util.run_user_genome_to_tsv(genome_ref, str(path_genome_tsv))
         else:
             print('skip genome pipeline')
+        clade_to_input_genomes = {}
+        for input_genome, clade in input_genome_to_clade.items():
+            if clade not in clade_to_input_genomes:
+                clade_to_input_genomes[clade] = set()
+            clade_to_input_genomes[clade].add(input_genome)
+
 
         executor = TaskExecutor(max_workers=4)
         path_user_genome = Path(self.shared_folder) / "genome"
@@ -484,12 +495,30 @@ Author: chenry
         executor.shutdown()
 
         # safe to build table all task barrier reached
+        print(f'Export tsv tables [models, phenotypes]')
+        self.util.build_model_tables(data_files=str(Path(self.shared_folder / 'models')))
+        self.util.build_phenotype_tables(
+            output_dir=str(Path(self.shared_folder / 'phenotypes')),
+            phenosim_directory=str(Path(self.shared_folder / 'phenotypes')),
+            experiment_data_file='/kb/module/data/experimental_data.json',
 
+            fitness_mapping_dir=str(Path(self.shared_folder / 'genome')),
+            model_data_dir=str(Path(self.shared_folder / 'models')),
+
+            fitness_genomes_dir='/data/reference_data/phenotype_data',
+            reference_phenosim_dir='/data/reference_data/phenotype_data/phenosims'
+        )
         for folder_pangenome in os.listdir(str(path_pangenome)):
             if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
                 print(f'Build table for pangenome folder: {folder_pangenome}')
                 # run table assembly pipeline for - folder_pangenome
                 self.run_build_table(input_params.resolve(), folder_pangenome)
+                path_db_file = Path(self.shared_folder / 'pangenome' / folder_pangenome / 'db.sqlite')
+                generate_ontology_tables(str(path_db_file),
+                                         reference_data_path='/data/',
+                                         source_tables=[
+                                             'user_feature', 'pangenome_feature'
+                                         ])
 
         print_path(Path(self.shared_folder).resolve())
 
