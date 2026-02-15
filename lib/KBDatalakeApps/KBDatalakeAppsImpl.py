@@ -106,6 +106,23 @@ Author: chenry
                 raise ValueError(f"Required parameter '{key}' is missing")
 
     @staticmethod
+    def input_refs_to_genome_refs(refs, kbase_api):
+        genome_refs = {}
+        for ref in refs:
+            info = kbase_api.get_object_info(ref)
+            if info.type == 'KBaseGenomes.Genome':
+                genome_refs[str(info)] = info.id
+            elif info.type == 'KBaseSearch.GenomeSet':
+                genome_set = kbase_api.get_from_ws(str(info))
+                for i in genome_set.elements.values():
+                    info = kbase_api.get_object_info(i['ref'])
+                    genome_refs[str(info)] = info.id
+            else:
+                raise ValueError(f'bad input ref type: {info.type}')
+            print(info.id, info.type)
+        return genome_refs
+
+    @staticmethod
     def run_genome_pipeline(input_file):
         cmd = ["/kb/module/scripts/run_genome_pipeline.sh", str(input_file)]
 
@@ -299,13 +316,21 @@ Author: chenry
         export_all_data = params['export_all_content'] == 1
         export_genome_data = params['export_genome_data'] == 1
         export_databases = params['export_databases'] == 1
+        export_folder_models = params['export_folder_models'] == 1
+        export_folder_phenotypes = params['export_folder_phenotypes'] == 1
+        input_refs = params['input_refs']
 
         input_params = Path(self.shared_folder) / 'input_params.json'
         print(str(input_params.resolve()))
+
+        genome_refs = self.input_refs_to_genome_refs(input_refs, self.kbase_api)
+        print('input_genomes:', genome_refs)
+
         with open(str(input_params.resolve()), 'w') as fh:
             _params = dict(params)
             _params['_ctx'] = ctx
             _params['_config'] = self.config
+            _params['_genome_refs'] = genome_refs
 
             print('to create a copy for debug:', _params)
 
@@ -332,11 +357,9 @@ Author: chenry
         self._validate_params(params, ['input_refs', 'workspace_name'])
 
         workspace_name = params['workspace_name']
-        input_refs = params['input_refs']
+
         suffix = params.get('suffix', ctx['token'])
         save_models = params.get('save_models', 0)
-
-        genome_refs = [input_refs[0]]  # FIXME: this is not correct
 
         if not skip_genome_pipeline:
             self.run_genome_pipeline(input_params.resolve())
@@ -399,33 +422,6 @@ Author: chenry
                                                                     self.rast_client))
                             tasks_pangeome.append(executor.run_task(self.run_annotation_pipeline,
                                                                     path_pangenome_members / _f))
-
-
-
-
-                    """
-                    try:
-                        print(f"run kb_bakta annotation for {genome}")
-                        self.logger.info(f"run annotation for {genome}")
-                        start_time = time.perf_counter()
-                        result = self.kb_bakta.annotate_proteins(proteins)
-                        end_time = time.perf_counter()
-                        print(f"Execution time: {end_time - start_time} seconds")
-                        print(f'received results of type {type(result)} and size {len(result)}')
-                    except Exception as ex:
-                        print(f'nope {ex}')
-
-                    try:
-                        print(f"run kb_psortb annotation for {genome}")
-                        self.logger.info(f"run annotation for {genome}")
-                        start_time = time.perf_counter()
-                        result = self.kb_psortb.annotate_proteins(proteins, "-n")
-                        end_time = time.perf_counter()
-                        print(f"Execution time: {end_time - start_time} seconds")
-                        print(f'received results of type {type(result)} and size {len(result)}')
-                    except Exception as ex:
-                        print(f'nope {ex}')
-                    """
 
         print('Task barrier input genome annotation RAST')
         for t in tasks_input_genome_rast:
@@ -525,6 +521,28 @@ Author: chenry
                 'name': 'input_genomes.zip',
                 'label': 'Input Genomes Data',
                 'description': 'Input Genomes with annotation and model files'
+            })
+        if export_folder_models:
+            archive_shock_id = self.dfu.file_to_shock({
+                'file_path': str(shared_folder_path / 'models'),
+                'pack': 'zip'
+            })['shock_id']
+            file_links.append({
+                'shock_id': archive_shock_id,
+                'name': 'models.zip',
+                'label': 'Models Folder',
+                'description': 'debug'
+            })
+        if export_folder_phenotypes:
+            archive_shock_id = self.dfu.file_to_shock({
+                'file_path': str(shared_folder_path / 'phenotypes'),
+                'pack': 'zip'
+            })['shock_id']
+            file_links.append({
+                'shock_id': archive_shock_id,
+                'name': 'phenotypes.zip',
+                'label': 'Phenotypes Folder',
+                'description': 'debug'
             })
         if export_databases:
             for folder_pangenome in os.listdir(str(path_pangenome)):
