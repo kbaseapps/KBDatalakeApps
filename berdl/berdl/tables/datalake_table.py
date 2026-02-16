@@ -33,6 +33,11 @@ class DatalakeTableBuilder:
         self.include_dna_sequence = include_dna_sequence
         self.include_protein_sequence = include_protein_sequence
 
+        path_pangenome_members = self.root_pangenome.root / 'members.tsv'
+        self.df_members = pl.read_csv(path_pangenome_members, separator='\t')
+        self.filter_genome_ids = {o[0] for o in self.df_members.select("genome_id").rows()}
+        self.filter_genome_ids |= self.input_genomes
+
     def build(self):
         #self.build_genome_table()
         self.build_ani_table()
@@ -43,6 +48,11 @@ class DatalakeTableBuilder:
         if path_genome_dir.exists():
             df_pangenome_features = self.build_pangenome_member_feature_parquet()
             self.build_pangenome_genome_features_table(df_pangenome_features)
+
+        self.build_input_genome_reactions()
+        self.build_gene_reaction_data()
+        self.build_genome_phenotype()
+        self.build_gene_phenotype()
 
         #self.build_user_genome_features_table()
         #self.build_pangenome_genome_features_table()
@@ -402,7 +412,114 @@ class DatalakeTableBuilder:
         conn.commit()
         conn.close()
 
-    def build_input_genome_reactions(self, filename_genome_reactions):
+    def build_genome_phenotype(self):
+        conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
+        cur = conn.cursor()
+        cur.execute("DROP TABLE IF EXISTS genome_phenotype;")
+        sql_create_table = """
+        CREATE TABLE genome_phenotype (
+          genome_id                  TEXT NOT NULL,
+          phenotype_id               TEXT NOT NULL,
+          phenotype_name             TEXT,
+          class                      TEXT,     -- e.g. P / N / A / C
+          simulated_objective        REAL,
+          observed_objective         REAL,
+          gap_count                  INTEGER,
+          gapfilled_reactions        TEXT,     -- semicolon-separated reaction IDs
+          reaction_count             INTEGER,
+          transports_added           TEXT,     -- e.g. cpd00971_c0 (may be empty)
+          closest_experimental_data  TEXT,
+          source                     TEXT,     -- e.g. pangenome
+        
+          PRIMARY KEY (genome_id, phenotype_id)
+        );
+        """
+        cur.execute(sql_create_table)
+
+        path_to_data = self.root_genome.root / 'phenotypes' / 'genome_phenotypes.tsv'
+        ldf = pl.scan_csv(path_to_data, separator='\t')
+        genome_ids = set(
+            ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
+        excluded = genome_ids - self.filter_genome_ids
+        print('genome_phenotype excluded', excluded)
+
+        df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
+        df_filter.to_pandas().to_sql("genome_phenotype", conn, if_exists="append", index=False)
+
+        conn.commit()
+        conn.close()
+
+    def build_gene_phenotype(self):
+        conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
+        cur = conn.cursor()
+        cur.execute("DROP TABLE IF EXISTS gene_phenotype;")
+        sql_create_table = """
+        CREATE TABLE gene_phenotype (
+          genome_id              TEXT NOT NULL,
+          gene_id                TEXT NOT NULL,
+          phenotype_id           TEXT NOT NULL,
+          phenotype_name         TEXT,
+          association_sources    TEXT,   -- e.g. model_prediction
+          model_pred_reactions   TEXT,   -- semicolon-separated reaction IDs
+          model_pred_max_flux    REAL,
+          fitness_match          TEXT,   -- e.g. no_fitness_ortholog
+          fitness_max            REAL,
+          fitness_min            REAL,
+          fitness_avg            REAL,
+          fitness_count          INTEGER,
+          essentiality_fraction  REAL,
+        
+          PRIMARY KEY (genome_id, gene_id, phenotype_id)
+        );
+        """
+        cur.execute(sql_create_table)
+
+        path_to_data = self.root_genome.root / 'phenotypes' / 'gene_phenotypes.tsv'
+        ldf = pl.scan_csv(path_to_data, separator='\t')
+        genome_ids = set(
+            ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
+        excluded = genome_ids - self.filter_genome_ids
+        print('gene_phenotype excluded', excluded)
+
+        df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
+        df_filter.to_pandas().to_sql("gene_phenotype", conn, if_exists="append", index=False)
+
+        conn.commit()
+        conn.close()
+
+    def build_gene_reaction_data(self):
+        table_name = 'genome_gene_reaction_essentially_test'
+        conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
+        cur = conn.cursor()
+        cur.execute(f"DROP TABLE IF EXISTS {table_name};")
+        sql_create_table = f"""
+        CREATE TABLE IF NOT EXISTS {table_name} (
+           genome_id           TEXT NOT NULL,
+           gene_id             TEXT NOT NULL,
+           reaction            TEXT,     -- semicolon-separated reaction IDs
+           rich_media_flux     REAL,
+           rich_media_class    TEXT,     -- e.g. blocked / variable / essential
+           minimal_media_flux  REAL,
+           minimal_media_class TEXT,
+           PRIMARY KEY (genome_id, gene_id)
+        );
+        """
+        cur.execute(sql_create_table)
+
+        path_to_data = self.root_genome.root / 'models' / 'gene_reaction_data.tsv'
+        ldf = pl.scan_csv(path_to_data, separator='\t')
+        genome_ids = set(
+            ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
+        excluded = genome_ids - self.filter_genome_ids
+        print(f'{table_name} excluded: {excluded}')
+
+        df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
+        df_filter.to_pandas().to_sql(table_name, conn, if_exists="append", index=False)
+
+        conn.commit()
+        conn.close()
+
+    def build_input_genome_reactions(self):
         conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
         cur = conn.cursor()
         cur.execute("DROP TABLE IF EXISTS genome_reaction;")
@@ -424,11 +541,78 @@ class DatalakeTableBuilder:
           PRIMARY KEY (genome_id, reaction_id)
         );
         """
+        cur.execute(sql_create_table)
 
-        pd.read_csv(filename_genome_reactions, sep='\t').to_sql("genome_reaction",
-                                                                conn,
-                                                                if_exists="append",
-                                                                index=False)
+        path_data = self.root_genome.root / 'models' / 'genome_reactions.tsv'
+        ldf = pl.scan_csv(path_data, separator='\t')
+        genome_ids = set(
+            ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
+        excluded = genome_ids - self.filter_genome_ids
+        print('genome_reaction excluded', excluded)
+
+        df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
+        df_filter.to_pandas().to_sql("genome_reaction", conn, if_exists="append", index=False)
+
+        conn.commit()
+        conn.close()
+
+    def build_model_performance(self):
+        conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
+        cur = conn.cursor()
+        cur.execute("DROP TABLE IF EXISTS model_performance;")
+        sql_create_table = """
+        CREATE TABLE model_performance (
+          genome_id                  TEXT NOT NULL,
+          taxonomy                   TEXT,
+          false_positives            INTEGER,
+          false_negatives            INTEGER,
+          true_positives             INTEGER,
+          true_negatives             INTEGER,
+          accuracy                   REAL,
+          positive_growth            INTEGER,
+          negative_growth            INTEGER,
+          avg_positive_growth_gaps   REAL,
+          avg_negative_growth_gaps   REAL,
+          closest_user_genomes       TEXT,
+          source                     TEXT,   -- e.g. pangenome / user / experiment
+        
+          PRIMARY KEY (genome_id)
+        );
+        """
+        cur.execute(sql_create_table)
+
+        path_data = self.root_genome.root / 'phenotypes' / 'model_performance.tsv'
+        ldf = pl.scan_csv(path_data, separator='\t')
+        genome_ids = set(
+            ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
+        excluded = genome_ids - self.filter_genome_ids
+        print('model_performance excluded', excluded)
+
+        df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
+        df_filter.to_pandas().to_sql("model_performance", conn, if_exists="append", index=False)
+
+        conn.commit()
+        conn.close()
+
+    def build_table_media_composition(self):
+        conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
+        cur = conn.cursor()
+        cur.execute("DROP TABLE IF EXISTS media_composition;")
+        sql_create_table = """
+                CREATE TABLE media_composition (
+                  media_id              TEXT NOT NULL,
+                  compound_id           TEXT,
+                  max_uptake            REAL,
+                  compound_name         TEXT,
+
+                  PRIMARY KEY (media_id, compound_id)
+                );
+                """
+        cur.execute(sql_create_table)
+
+        path_data = self.root_genome.root / 'models' / 'media_compositions.tsv'
+        pl.read_csv(path_data, separator='\t').to_pandas().to_sql(
+            "media_composition", conn, if_exists="append", index=False)
 
         conn.commit()
         conn.close()
