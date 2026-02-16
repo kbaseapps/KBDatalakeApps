@@ -1391,6 +1391,17 @@ def run_phenotype_simulation(model_filename,output_filename,data_path,max_phenot
 
 
 def run_model_reconstruction2(genome_id: str, genome: MSGenome, output_filename, classifier_dir, kb_version):
+    print('run_model_reconstruction2', genome_id, len(genome.features), output_filename)
+
+    # Diagnostic: count features with RAST terms
+    rast_count = sum(1 for f in genome.features if 'RAST' in f.ontology_terms and f.ontology_terms['RAST'])
+    print(f'  Genome {genome_id}: {len(genome.features)} features, {rast_count} with RAST annotations')
+    if rast_count == 0:
+        return {
+            'success': False,
+            'error': f"No RAST annotations found. Check that the TSV 'functions' column is being read correctly."
+        }
+
     worker_util = MSReconstructionUtils(kbversion=kb_version)
 
     genome_classifier = worker_util.get_classifier(classifier_dir)

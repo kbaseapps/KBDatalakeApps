@@ -8,7 +8,26 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 sys.path = ["/kb/module/lib","/deps/KBUtilLib/src"] + sys.path
 
-from KBDatalakeApps.KBDatalakeUtils import KBDataLakeUtils, run_model_reconstruction, run_phenotype_simulation
+from modelseedpy.core.msgenome import MSGenome, MSFeature
+import pandas as pd
+from KBDatalakeApps.KBDatalakeUtils import KBDataLakeUtils, run_model_reconstruction, run_phenotype_simulation, run_model_reconstruction2
+
+
+def read_rast_as_genome(filename_rast, genome_id, ontology_term_rast='RAST') -> MSGenome:
+    d_rast = pd.read_csv(filename_rast, sep='\t', index_col=0).to_dict()[ontology_term_rast]
+    genome = MSGenome()
+    genome.id = genome_id
+    genome.scientific_name = genome_id
+    features = []
+    for feature_id, rast_str in d_rast.items():
+        feature = MSFeature(feature_id, "")
+        if not pd.isna(rast_str):
+            for v in rast_str.split('; '):
+                feature.add_ontology_term('RAST', v)
+        features.append(feature)
+    genome.add_features(features)
+
+    return genome
 
 
 def main(params):
@@ -20,6 +39,7 @@ def main(params):
     input_refs = params['input_refs']
     module_path = params.get('module_path', '/kb/module')
     data_path = f"{module_path}/data"
+    print('model_pipeline params:', params)
 
     # Construct SDK config (container paths)
     sdk_config = {
@@ -86,15 +106,16 @@ def main(params):
     genomes_to_process = {}
     filename_prefix_rast = '_rast.tsv'  # RAST annotation prefix
     for filename_rast in user_genome_dir.glob('*' + filename_prefix_rast):
-        genome_id = filename_rast.name[:-len(filename_prefix_rast)]  # get genome_id
-        print(genome_id, filename_rast)
-        all_tsvs.append(str(filename_rast))
-        # build MSGenome
+        all_tsvs.append(filename_rast)
     for filename_rast in pangenome_dir.glob('**/*' + filename_prefix_rast):
+        all_tsvs.append(filename_rast)
+    for filename_rast in all_tsvs:
         genome_id = filename_rast.name[:-len(filename_prefix_rast)]  # get genome_id
         print(genome_id, filename_rast)
-        all_tsvs.append(str(filename_rast))
-        # build MSGenome
+        genomes_to_process[genome_id] = (
+            read_rast_as_genome(filename_rast, genome_id),
+            filename_rast.parent / genome_id)
+
     # Step 3: Run model reconstruction in parallel
     results_dir = output_dir / "models"
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -107,11 +128,26 @@ def main(params):
 
     print(f"\n--- Model Reconstruction ({len(work_items)} genomes, 10 workers) ---")
     futures = {}
-    with ProcessPoolExecutor(max_workers=20) as executor:
+    with ProcessPoolExecutor(max_workers=10) as executor:
+        for genome_id, (genome, outp) in genomes_to_process.items():
+            print(f'submit - run_model_reconstruction {genome_id} {genome} {outp} {classifier_dir} {kbversion}')
+            _future = executor.submit(run_model_reconstruction2, genome_id, genome, str(outp), classifier_dir, kbversion)
+            futures[_future] = (genome_id, outp)
+        for future in as_completed(futures):
+            genome_id, outp = futures[future]
+            try:
+                result = future.result()
+                status = "OK" if result.get('success') else f"FAIL: {str(result.get('error', '?'))[:80]}"
+                print(f"  {genome_id}: {status}")
+            except Exception as e:
+                print(f"  {genome_id}: ERROR - {e}")
+                traceback.print_exc()
+        """
         for inp, outp in work_items:
             print(f'submit - run_model_reconstruction {inp} {outp} {classifier_dir} {kbversion}')
             _future = executor.submit(run_model_reconstruction, inp, outp, classifier_dir, kbversion,token)
             futures[_future] = (inp, outp)
+
         for future in as_completed(futures):
             inp, outp = futures[future]
             try:
@@ -121,6 +157,7 @@ def main(params):
             except Exception as e:
                 print(f"  {Path(inp).name}: ERROR - {e}")
                 traceback.print_exc()
+        """
 
     cobra_files = sorted(results_dir.glob("*_cobra.json"))
     data_files = sorted(results_dir.glob("*_data.json"))
