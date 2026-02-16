@@ -279,8 +279,7 @@ Author: chenry
         self.kb_psortb = kb_psortb(self.callback_url, service_ver='beta')
         self.kb_kofam = kb_kofam(self.callback_url, service_ver='beta')
         self.rast_client = RAST_SDK(self.callback_url, service_ver='beta')
-        self.util = KBDataLakeUtils(kbendpoint=config["kbase-endpoint"],reference_path="/data/",module_path="/kb/module")
-        self.util.set_token(get_berdl_token(), namespace="berdl")
+        self.util = None
         print('polars thread pool', pl.thread_pool_size())
         #END_CONSTRUCTOR
         pass
@@ -309,6 +308,16 @@ Author: chenry
         # return variables are: output
         #BEGIN build_genome_datalake_tables
         self.logger.info(f"Building genome datalake tables with params: {params}")
+
+        path_token = Path.home() / ".kbase"
+        path_token.mkdir(exist_ok=True)
+        path_token = Path.home() / ".kbase" / "token"
+        with open(path_token, 'w') as fh:
+            fh.write(ctx['token'])
+        self.util = KBDataLakeUtils(kbendpoint=self.config["kbase-endpoint"], reference_path="/data/",
+                                    module_path="/kb/module")
+        self.util.set_token(get_berdl_token(), namespace="berdl")
+
         skip_annotation = params['skip_annotation'] == 1
         skip_pangenome = params['skip_pangenome'] == 1
         skip_genome_pipeline = params['skip_genome_pipeline'] == 1
