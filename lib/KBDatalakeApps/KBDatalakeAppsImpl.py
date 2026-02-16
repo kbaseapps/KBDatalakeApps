@@ -545,38 +545,44 @@ Author: chenry
             })
         """
         if export_genome_data:
-            archive_shock_id = self.dfu.file_to_shock({
-                'file_path': str(path_root / 'genome'),
-                'pack': 'zip'
-            })['shock_id']
-            file_links.append({
-                'shock_id': archive_shock_id,
-                'name': 'input_genomes.zip',
-                'label': 'Input Genomes Data',
-                'description': 'Input Genomes with annotation and model files'
-            })
+            _file_path = path_root / 'genome'
+            if any(_file_path.iterdir()):
+                archive_shock_id = self.dfu.file_to_shock({
+                    'file_path': str(_file_path),
+                    'pack': 'zip'
+                })['shock_id']
+                file_links.append({
+                    'shock_id': archive_shock_id,
+                    'name': 'input_genomes.zip',
+                    'label': 'Input Genomes Data',
+                    'description': 'Input Genomes with annotation and model files'
+                })
         if export_folder_models:
-            archive_shock_id = self.dfu.file_to_shock({
-                'file_path': str(path_root / 'models'),
-                'pack': 'zip'
-            })['shock_id']
-            file_links.append({
-                'shock_id': archive_shock_id,
-                'name': 'models.zip',
-                'label': 'Models Folder',
-                'description': 'debug'
-            })
+            _file_path = path_root / 'models'
+            if any(_file_path.iterdir()):
+                archive_shock_id = self.dfu.file_to_shock({
+                    'file_path': str(_file_path),
+                    'pack': 'zip'
+                })['shock_id']
+                file_links.append({
+                    'shock_id': archive_shock_id,
+                    'name': 'models.zip',
+                    'label': 'Models Folder',
+                    'description': 'debug'
+                })
         if export_folder_phenotypes:
-            archive_shock_id = self.dfu.file_to_shock({
-                'file_path': str(path_root / 'phenotypes'),
-                'pack': 'zip'
-            })['shock_id']
-            file_links.append({
-                'shock_id': archive_shock_id,
-                'name': 'phenotypes.zip',
-                'label': 'Phenotypes Folder',
-                'description': 'debug'
-            })
+            _file_path = path_root / 'phenotypes'
+            if any(_file_path.iterdir()):
+                archive_shock_id = self.dfu.file_to_shock({
+                    'file_path': str(_file_path),
+                    'pack': 'zip'
+                })['shock_id']
+                file_links.append({
+                    'shock_id': archive_shock_id,
+                    'name': 'phenotypes.zip',
+                    'label': 'Phenotypes Folder',
+                    'description': 'debug'
+                })
         if export_databases:
             for folder_pangenome in os.listdir(str(path_pangenome)):
                 path_mmseqs_tmp = path_pangenome / folder_pangenome / 'master_mmseqs2' / 'mmseqs2_tmp'
