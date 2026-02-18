@@ -1,10 +1,10 @@
 {
     "ver": "0.0.1",
     "authors": [
-        "chenry"
+        "chenry", "filipeliu"
     ],
     "contact": "chenry@anl.gov",
-    "categories": ["active", "BERDL"],
+    "categories": ["active", "KBERDL"],
     "widgets": {
         "output": "no-display",
         "input": null
@@ -18,7 +18,7 @@
             "default_values": [""],
             "field_type": "text",
             "text_options": {
-                "valid_ws_types": ["KBaseGenomes.Genome", "KBaseSets.GenomeSet"]
+                "valid_ws_types": ["KBaseGenomes.Genome", "KBaseSets.GenomeSet", "KBaseSearch.GenomeSet"]
             }
         },
         {

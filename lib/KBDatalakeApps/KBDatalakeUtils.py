@@ -200,7 +200,10 @@ class KBDataLakeUtils(KBGenomeUtils, MSReconstructionUtils, MSFBAUtils):
             # Get genome name from workspace
             info = self.get_object_info(genome_ref)
             genome_name = info[1]
-            output_name = genome_name + "_" + suffix
+            if suffix:
+                output_name = genome_name + "_" + suffix
+            else:
+                output_name = genome_name
 
             # Determine genome ID in the database
             # DB stores genome as 'user_<name>' or just the genome name

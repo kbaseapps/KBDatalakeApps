@@ -37,7 +37,7 @@ from KBDatalakeApps.utils import upload_blob_file, print_path
 #    """Custom utility class combining KBUtilLib modules for datalake operations."""
 #    pass
 
-
+DEBUG_MODE = True
 
 
 def get_berdl_token():
@@ -253,7 +253,10 @@ Author: chenry
         self.rast_client = RAST_SDK(self.callback_url, service_ver='beta')
         self.util = None
         self.hs = None
-        print('polars thread pool', pl.thread_pool_size())
+
+        if DEBUG_MODE:
+            print('WARNING DEBUG MODE')
+            print('polars thread pool', pl.thread_pool_size())
         #END_CONSTRUCTOR
         pass
 
@@ -304,6 +307,10 @@ Author: chenry
         export_folder_phenotypes = params['export_folder_phenotypes'] == 1
         input_refs = params['input_refs']
         output_object_name = params['output']
+        suffix = params.get('suffix', ctx['token'])  # FIXME: why ctx token ???
+        save_models = params.get('save_models', 0)
+        workspace_name = params['workspace_name']
+        param_clade_limit = 5  # max number of clades to process
 
         input_params = Path(self.shared_folder) / 'input_params.json'
         print(str(input_params.resolve()))
@@ -321,30 +328,27 @@ Author: chenry
 
             fh.write(json.dumps(_params))
 
-        print(os.environ)
+        #print(os.environ)
         #print('ctx', ctx)
         #print('contig', self.config)
-        print('data dir')
-        print(os.listdir('/data'))
-        if os.path.exists('/data') and os.path.exists('/data/reference_data'):
-            print(os.listdir('/data/reference_data'))
+        if DEBUG_MODE:
+            print('data dir')
+            print(os.listdir('/data'))
+            if os.path.exists('/data') and os.path.exists('/data/reference_data'):
+                print(os.listdir('/data/reference_data'))
 
-            if os.path.exists('/data/reference_data/berdl_db'):
-                print('berdl:', os.listdir('/data/reference_data/berdl_db'))
+                if os.path.exists('/data/reference_data/berdl_db'):
+                    print('berdl:', os.listdir('/data/reference_data/berdl_db'))
+
+            print('BERDL Token')
+            print(get_berdl_token())
 
         #if not skip_annotation:
         #    test_annotation(self.kb_kofam, self.kb_bakta, self.kb_psortb, self.rast_client)
 
-        #print('BERDL Token')
-        #print(self.get_berdl_token())
-
         # Validate required parameters
         self._validate_params(params, ['input_refs', 'workspace_name'])
 
-        workspace_name = params['workspace_name']
-
-        suffix = params.get('suffix', ctx['token'])  # FIXME: why ctx token ???
-        save_models = params.get('save_models', 0)
         input_genome_to_clade = {}
         path_root = Path(self.shared_folder)
         if not skip_genome_pipeline:

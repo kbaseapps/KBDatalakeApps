@@ -14,7 +14,7 @@ LOGGER = logging.getLogger(__name__)
 def main(input_params):
     print(os.environ)
     #  setup clients/methods
-    kbase = KBaseAPI(input_params['_ctx']['token'], dev=True)
+    kbase = KBaseAPI(input_params['_ctx']['token'], config=input_params['_config'])
     #kbase = KBaseAPI(input_params['_ctx']['token'], config={
     #    'workspace-url': input_params['_config']['workspace-url']})
 
