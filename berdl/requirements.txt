@@ -2,5 +2,5 @@ pyarrow==23.0.0
 polars==1.38.1
 requests==2.32.5
 ModelSEEDpy @ git+https://github.com/ModelSEED/ModelSEEDpy.git@062714b28dff24b864b1dc2e2bb89aa2fd6b8298
-cobrakbase @ git+https://github.com/Fxe/cobrakbase.git@c98f80780442de53e9d06d0f87b5bd9997637d11
+cobrakbase @ git+https://github.com/Fxe/cobrakbase.git@b385dbdd90dc8c3f078525a05f6f8260510074ac
 berdl-genomes @ file:///kb/module/berdl
