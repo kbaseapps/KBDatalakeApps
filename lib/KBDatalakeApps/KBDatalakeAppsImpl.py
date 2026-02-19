@@ -722,8 +722,8 @@ Author: chenry
         }]
 
         report_params = {
-            'message': 'message_in_app hi!',
-            'warnings': ['example warning'],
+            'message': '\n'.join(messages),
+            'warnings': warnings,
             'workspace_name': params['workspace_name'],
             'objects_created': [],
             'html_links': html_links,

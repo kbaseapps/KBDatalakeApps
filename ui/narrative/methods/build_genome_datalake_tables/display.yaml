@@ -33,20 +33,20 @@ parameters:
 
     suffix:
         ui-name: |
-            Table Name Suffix
+            Output Genome Suffix
         short-hint: |
-            Optional suffix to append to generated table names
+            Datalake annotated input genomes suffix
         long-hint: |
-            Enter a suffix string that will be appended to the names of the generated
-            datalake tables. This helps distinguish different table sets.
+            The app will create new genomes with added ontology from the Datalake.
+            The newly created genomes with have the suffix appended.
 
     output:
         ui-name: |
             Output Object Name
         short-hint: |
-            out
+            Datalake output object.
         long-hint: |
-            out out
+            The Datalake Table output object contains the compiled data database products.
 
     save_models:
         ui-name: |
