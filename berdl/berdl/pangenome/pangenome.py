@@ -227,6 +227,8 @@ class BERDLPangenome:
                     genome_contigs = MSGenome.from_fasta(str(file_contigs))
                     genome_contigs.to_fasta(filename_fna)
                     pangenome_members.append(filename_fna.resolve())
+            else:
+                pangenome_members.append(filename_fna.resolve())
 
         filename_library_input_genomes = self.paths.root / 'library' / 'input_genomes.txt'
         filename_pangenome_member_library = self.paths.root / 'library' / 'pangenome_members.txt'
@@ -244,6 +246,21 @@ class BERDLPangenome:
             program_out = run_ani(filename_library_input_genomes,
                                   filename_pangenome_member_skani_db,
                                   filename_ani_members)
+
+        from berdl.prep_genome_set import _read_search_output_as_parquet, BERDLPreGenome
+        df_members_ani = None
+        if filename_ani_members.exists():
+            df_members_ani = _read_search_output_as_parquet(filename_ani_members)
+        if df_members_ani is not None:
+            assembly_to_user_id = {}
+            with open(filename_library_input_genomes, 'r') as fh:
+                for line in fh.read().split('\n'):
+                    _filename = line.split('/')[-1]
+                    assembly_to_user_id[_filename] = _filename[:-4]
+            ani_members = BERDLPreGenome.ani_translate_clade(df_members_ani, assembly_to_user_id)
+            filename_ani_members_json = self.paths.root / 'ani_members.json'
+            with open(filename_ani_members_json, 'w') as fh:
+                fh.write(json.dumps(ani_members))
 
         # build master protein user_genome + pangenome
         if not self.paths.out_master_faa_pangenome_members.exists() or not self.paths.out_master_faa.exists():

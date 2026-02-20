@@ -108,14 +108,15 @@ class BERDLPreGenome:
             query_to_ref[q][r] = [d['ANI'], d['Align_fraction_ref'], d['Align_fraction_query']]
         return query_to_ref
 
-    def ani_translate_clade(self, df, assembly_to_user_id):
+    @staticmethod
+    def ani_translate_clade(df, assembly_to_user_id):
         def q_transform(s):
             return assembly_to_user_id[s.split('/')[-1]]
 
         def r_transform(s):
-            return self.t_ncbi_to_gtdb_id(s.split('/')[-1].rsplit('_', 1)[0])
+            return BERDLPreGenome.t_ncbi_to_gtdb_id(s.split('/')[-1].rsplit('_', 1)[0])
 
-        t = self.ani_transform(df, q_transform, r_transform)
+        t = BERDLPreGenome.ani_transform(df, q_transform, r_transform)
         return t
 
     def ani_translate_fitness(self, df, assembly_to_user_id):
