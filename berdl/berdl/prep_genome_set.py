@@ -4,21 +4,7 @@ from modelseedpy import MSGenome
 from berdl.genome_paths import GenomePaths
 import pyarrow as pa
 import pandas as pd
-
-
-def run_ani(query, library, output_file, threads=20):
-    import subprocess
-    cmd = [
-        'skani', 'search', "-t", str(threads),
-        "--ql", str(query),
-        "-d", str(library),
-        "-o", str(output_file),
-    ]
-    print(' '.join(cmd))
-    output = subprocess.run(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
-    )
-    return output
+from berdl.tools.skani import run_ani
 
 
 def _read_search_output_as_parquet(filename, sep='\t'):
@@ -170,42 +156,63 @@ class BERDLPreGenome:
         t = self.ani_transform(df, q_transform, r_transform_phenotypes)
         return t
 
+    @staticmethod
+    def match_top_clade(ani_clades: dict) -> dict:
+        top_matches = {}
+
+        for clade, genomes in ani_clades.items():
+            # Select the genome with the highest ANI (first value in the list)
+            best_genome = max(genomes.items(), key=lambda item: item[1][0])[0]
+            top_matches[clade] = best_genome
+
+        return top_matches
+
     def run(self, genomes: list):
         user_genome_files = self.pre_user_genomes(genomes)
         df_ani_clade, df_ani_fitness, df_ani_phenotype = self.run_ani_databases()
 
         assembly_to_user_id = {v[0]: k for k, v in user_genome_files.items()}
 
-        def match_top_clade(ani_clades):
-            top_matches = {}
-
-            for clade, genomes in ani_clades.items():
-                # Select the genome with the highest ANI (first value in the list)
-                best_genome = max(genomes.items(), key=lambda item: item[1][0])[0]
-                top_matches[clade] = best_genome
-
-            return top_matches
-        
-        if df_ani_clade is None:
-            ani_clades = {}
-        else:
+        ani_clades = {}
+        if df_ani_clade is not None:
             ani_clades = self.ani_translate_clade(df_ani_clade, assembly_to_user_id)
-        user_to_clade = match_top_clade(ani_clades)
+        user_to_clade = self.match_top_clade(ani_clades)
 
         with open(self.paths.json_user_to_clade, 'w') as fh:
             fh.write(json.dumps(user_to_clade))
 
         ani_fitness = None
-        if not df_ani_fitness is None:
+        if df_ani_fitness is not None:
             ani_fitness = self.ani_translate_fitness(df_ani_fitness, assembly_to_user_id)
             with open(self.paths.ani_fitness_json, 'w') as fh:
                 fh.write(json.dumps(ani_fitness))
         ani_phenotype = None
-        if not df_ani_phenotype is None:
+        if df_ani_phenotype is not None:
             ani_phenotype = self.ani_translate_phenotype(df_ani_phenotype, assembly_to_user_id)
             with open(self.paths.ani_phenotypes_json, 'w') as fh:
                 fh.write(json.dumps(ani_phenotype))
         with open(self.paths.ani_kepangenomes_json, 'w') as fh:
             fh.write(json.dumps(ani_clades))
+
+        clade_to_genomes = {}
+        for genome, clade in user_to_clade.items():
+            if clade not in clade_to_genomes:
+                clade_to_genomes[clade] = set()
+            clade_to_genomes[clade].add(genome)
+
+        for clade in clade_to_genomes:
+            path_to_pangenome = self.paths.pangenome_dir / clade
+            path_to_pangenome.mkdir(exist_ok=True)
+            path_to_pangenome_library = path_to_pangenome / 'library'
+            path_to_pangenome_library.mkdir(exist_ok=True)
+            path_to_pangenome_library_input_genomes = path_to_pangenome_library / 'input_genomes.txt'
+            if not path_to_pangenome_library_input_genomes.exists():
+                with open(path_to_pangenome_library_input_genomes, 'w') as fh:
+                    for genome in clade_to_genomes[clade]:
+                        file_assembly_name = user_genome_files[genome][0]
+                        p = self.paths.assembly_dir / file_assembly_name
+                        print(p, p.exists())
+                        if p.exists():
+                            fh.write(str(p.resolve()) + '\n')
         
         return user_genome_files, user_to_clade, ani_clades, ani_fitness, ani_phenotype

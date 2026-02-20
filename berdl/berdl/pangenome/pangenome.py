@@ -6,6 +6,7 @@ from modelseedpy.core.msgenome import MSFeature, MSGenome
 from berdl.pangenome.paths_pangenome import PathsPangenome
 from berdl.hash_seq import ProteinSequence
 from berdl.fitness import create_genome_fitness_table, map_protein_hash_to_fitness_records
+from berdl.tools.skani import run_ani, skani_sketch
 
 
 _STRIP_FNA_ = len('/global/cfs/cdirs/kbase/jungbluth/Projects/Project_Pangenome_GTDB/GTDB_v214_download/ftp.ncbi.nlm.nih.gov/')
@@ -14,7 +15,7 @@ _STRIP_FNA_ = len('/global/cfs/cdirs/kbase/jungbluth/Projects/Project_Pangenome_
 class BERDLPangenome:
 
     def __init__(self, query_pg, query_g, paths: PathsPangenome):
-        self.pg = query_pg  # pan-genome query api
+        self.pg = query_pg  # pan-genome query apis
         self.query_g = query_g
         self.paths = paths.ensure()
 
@@ -130,8 +131,8 @@ class BERDLPangenome:
             process = subprocess.Popen(
                 cmd,
                 cwd=str(work_dir),
-                stdout=fh_out,  # inherit parent stdout
-                stderr=fh_err,  # inherit parent stderr
+                stdout=fh_out,
+                stderr=fh_err,
             )
             ret = process.wait()
 
@@ -174,6 +175,7 @@ class BERDLPangenome:
 
         # get clade member faa and fna
         members = {}
+        pangenome_members = []
         for row in clade_members.rows(named=True):
             member_id = row['genome_id']
             filename_faa = self.paths.genome_dir / f'{member_id}.faa'
@@ -193,6 +195,24 @@ class BERDLPangenome:
                 if file_contigs.exists():
                     genome_contigs = MSGenome.from_fasta(str(file_contigs))
                     genome_contigs.to_fasta(filename_fna)
+                    pangenome_members.append(filename_fna.resolve())
+
+        filename_library_input_genomes = self.paths.root / 'library_input_genomes.txt'
+        filename_pangenome_member_library = self.paths.root / 'pangenome_library.txt'
+        if not filename_pangenome_member_library.exists():
+            with open(filename_pangenome_member_library, 'w') as fh:
+                for filename_fna in pangenome_members:
+                    fh.write(str(filename_fna) + '\n')
+
+        filename_pangenome_member_skani_db = self.paths.root / 'pangenome_skani'
+        if not filename_pangenome_member_skani_db.exists():
+            skani_sketch(filename_pangenome_member_library, filename_pangenome_member_skani_db)
+
+        filename_ani_members = self.paths.root / 'pangenome_members.out'
+        if not filename_ani_members.exists():
+            program_out = run_ani(filename_library_input_genomes,
+                                  filename_pangenome_member_skani_db,
+                                  filename_ani_members)
 
         # build master protein user_genome + pangenome
         if not self.paths.out_master_faa_pangenome_members.exists() or not self.paths.out_master_faa.exists():

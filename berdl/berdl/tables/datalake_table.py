@@ -218,31 +218,34 @@ class DatalakeTableBuilder:
             with open(self.root_genome.ani_kepangenomes_json) as fh:
                 data_ani_clade = json.load(fh)
             for genome_user, ani_matches in data_ani_clade.items():
-                for genome_ani, (ani, af1, af2) in ani_matches.items():
-                    cur.execute(
-                        "INSERT INTO ani (genome1, genome2, ani, af1, af2) VALUES (?, ?, ?, ?, ?)",
-                        (f'user_{genome_user}', genome_ani, ani, af1, af2)
-                    )
+                if f'user_{genome_user}' in self.input_genomes:
+                    for genome_ani, (ani, af1, af2) in ani_matches.items():
+                        cur.execute(
+                            "INSERT INTO ani (genome1, genome2, ani, af1, af2) VALUES (?, ?, ?, ?, ?)",
+                            (f'user_{genome_user}', genome_ani, ani, af1, af2)
+                        )
 
         if self.root_genome.ani_fitness_json.exists():
             with open(self.root_genome.ani_fitness_json) as fh:
                 data_ani_fitness = json.load(fh)
             for genome_user, ani_matches in data_ani_fitness.items():
-                for genome_ani, (ani, af1, af2) in ani_matches.items():
-                    cur.execute(
-                        "INSERT INTO ani (genome1, genome2, ani, af1, af2) VALUES (?, ?, ?, ?, ?)",
-                        (f'user_{genome_user}', genome_ani, ani, af1, af2)
-                    )
+                if f'user_{genome_user}' in self.input_genomes:
+                    for genome_ani, (ani, af1, af2) in ani_matches.items():
+                        cur.execute(
+                            "INSERT INTO ani (genome1, genome2, ani, af1, af2) VALUES (?, ?, ?, ?, ?)",
+                            (f'user_{genome_user}', genome_ani, ani, af1, af2)
+                        )
 
         if self.root_genome.ani_phenotypes_json.exists():
             with open(self.root_genome.ani_phenotypes_json) as fh:
                 data_ani_phenotypes = json.load(fh)
             for genome_user, ani_matches in data_ani_phenotypes.items():
-                for genome_ani, (ani, af1, af2) in ani_matches.items():
-                    cur.execute(
-                        "INSERT INTO ani (genome1, genome2, ani, af1, af2) VALUES (?, ?, ?, ?, ?)",
-                        (f'user_{genome_user}', genome_ani, ani, af1, af2)
-                    )
+                if f'user_{genome_user}' in self.input_genomes:
+                    for genome_ani, (ani, af1, af2) in ani_matches.items():
+                        cur.execute(
+                            "INSERT INTO ani (genome1, genome2, ani, af1, af2) VALUES (?, ?, ?, ?, ?)",
+                            (f'user_{genome_user}', genome_ani, ani, af1, af2)
+                        )
 
         conn.commit()
         conn.close()

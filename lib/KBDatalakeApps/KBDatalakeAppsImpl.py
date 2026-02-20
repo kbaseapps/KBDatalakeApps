@@ -407,6 +407,7 @@ Author: chenry
                                 psortb_org_param = '-p'
                             elif res == 'A':
                                 psortb_org_param = '-a'
+                            messages.append(f'Run annotation PSORTB {psortb_org_param}: {filename_faa}')
                             tasks_input_genome.append(executor.run_task(task_psortb,
                                                                         path_user_genome / filename_faa,
                                                                         psortb_org_param,
