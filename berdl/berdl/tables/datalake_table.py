@@ -34,6 +34,7 @@ class DatalakeTableBuilder:
         self.root_pangenome = root_pangenome
         self.include_dna_sequence = include_dna_sequence
         self.include_protein_sequence = include_protein_sequence
+        self.df_members = None
 
         path_pangenome_members = self.root_pangenome.root / 'members.tsv'
         if path_pangenome_members.exists():
@@ -50,11 +51,12 @@ class DatalakeTableBuilder:
         df_user_features = self.build_user_genome_feature_parquet()
         self.build_user_genome_features_table(df_user_features)
 
-        path_genome_dir = self.root_pangenome.genome_dir
         df_pangenome_features = None
-        if path_genome_dir.exists():
-            df_pangenome_features = self.build_pangenome_member_feature_parquet()
-            self.build_pangenome_genome_features_table(df_pangenome_features)
+        if self.df_members is not None:
+            path_genome_dir = self.root_pangenome.genome_dir
+            if path_genome_dir.exists():
+                df_pangenome_features = self.build_pangenome_member_feature_parquet()
+                self.build_pangenome_genome_features_table(df_pangenome_features)
 
         self.build_input_genome_reactions()
         self.build_gene_reaction_data()
