@@ -267,7 +267,7 @@ Author: chenry
             _params = dict(params)
             _params['_ctx'] = ctx
             _params['_config'] = self.config
-            _params['_genome_refs'] = genome_refs_all
+            _params['_genome_refs'] = genome_to_ref
             if DEBUG_MODE:
                 print('to create a copy for debug:', _params)
             fh.write(json.dumps(_params))
