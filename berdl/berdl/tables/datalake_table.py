@@ -41,7 +41,7 @@ class DatalakeTableBuilder:
             self.filter_genome_ids = {o[0] for o in self.df_members.select("genome_id").rows()}
             self.filter_genome_ids |= self.input_genomes
         else:
-            self.filter_genome_ids |= self.input_genomes
+            self.filter_genome_ids = set(self.input_genomes)
         self.export_tables = export_tables
 
     def build(self):
