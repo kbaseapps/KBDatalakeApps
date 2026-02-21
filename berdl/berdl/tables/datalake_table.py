@@ -97,7 +97,7 @@ class DatalakeTableBuilder:
                 """)
 
         clade_ids = set()
-        if self.df_members:
+        if self.df_members is not None:
             member_ids = {o[0] for o in self.df_members.select("genome_id").rows()}
         else:
             member_ids = set()

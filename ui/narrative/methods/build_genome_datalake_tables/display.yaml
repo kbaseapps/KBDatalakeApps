@@ -52,47 +52,11 @@ parameters:
         ui-name: |
             Save Generated Models
         short-hint: |
-            Save the generated models to the workspace
+            Save the generated models to the workspace (NOT IMPLEMENTED)
         long-hint: |
             Check this box to save any models generated during the table building
             process to your workspace. Leave unchecked to only generate the tables
             without saving intermediate models.
-
-    skip_genome_pipeline:
-        ui-name: |
-            Skip Genome Pipeline
-        short-hint: |
-            Skip the genome processing pipeline
-        long-hint: |
-            Check this box to skip the genome processing pipeline. Use this option
-            if genome data has already been processed and you only need to run
-            other parts of the workflow.
-
-    skip_annotation:
-        ui-name: |
-            Skip Annotation
-        short-hint: |
-            skip skip skip
-        long-hint: |
-            x
-
-    skip_pangenome:
-        ui-name: |
-            Skip Pangenome
-        short-hint: |
-            skip skip skip
-        long-hint: |
-            x
-
-    skip_modeling_pipeline:
-        ui-name: |
-            Skip Modeling Pipeline
-        short-hint: |
-            Skip the metabolic modeling pipeline
-        long-hint: |
-            Check this box to skip the metabolic modeling pipeline. Use this option
-            if you only want to process genome data without building or analyzing
-            metabolic models.
 
     export_genome_data:
         ui-name: |
@@ -133,22 +97,6 @@ parameters:
             Export entire folder
         long-hint: |
             x
-
-    skip_save_genome_annotation:
-        ui-name: |
-            Skip Save Genome Annotation
-        short-hint: |
-            x
-        long-hint: |
-            x
-
-    export_all_content:
-        ui-name: |
-            Expert entire workdir content
-        short-hint: |
-            THIS IS HUGE
-        long-hint: |
-            THIS IS HUGE
 
 description: |
     <p>This app builds datalake tables from Genome or GenomeSet objects in your

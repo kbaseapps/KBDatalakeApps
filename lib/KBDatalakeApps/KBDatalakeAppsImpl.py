@@ -231,12 +231,6 @@ Author: chenry
                                     dfu_client=self.dfu,gfu_client=self.gfu, callback_url=self.callback_url)
         self.util.set_token(get_berdl_token(), namespace="berdl")
         self.hs = HandleService(self.config["handle-service-url"], token=ctx['token'])
-        skip_save_genome_annotation = params['skip_save_genome_annotation'] == 1
-        skip_annotation = params['skip_annotation'] == 1
-        skip_pangenome = params['skip_pangenome'] == 1
-        skip_genome_pipeline = params['skip_genome_pipeline'] == 1
-        skip_modeling_pipeline = params['skip_modeling_pipeline'] == 1
-        export_all_data = params['export_all_content'] == 1
         export_pangenome_data = params['export_pangenome_data'] == 1
         export_genome_data = params['export_genome_data'] == 1
         export_databases = params['export_databases'] == 1
@@ -292,37 +286,35 @@ Author: chenry
         genome_refs = {}
         genome_refs_skipped = {}
         path_root = Path(self.shared_folder)
-        if not skip_genome_pipeline:
-            self.run_genome_pipeline(input_params.resolve())
-            path_user_to_clade_json = path_root / 'pangenome' / 'user_to_clade.json'
-            if path_user_to_clade_json.exists():
-                print(f'found input genome pangenome assignments: {path_user_to_clade_json}')
-                with open(path_user_to_clade_json, 'r') as fh:
-                    input_genome_to_clade = json.load(fh)
-            else:
-                print(f'{path_user_to_clade_json} NOT FOUND')
 
-            for genome_name, clade in input_genome_to_clade.items():
-                if clade not in clade_to_input_genomes:
-                    if len(clade_to_input_genomes) < param_clade_limit:
-                        clade_to_input_genomes[clade] = set()
-                    else:
-                        warnings.append(f'WARNING CLADE LIMIT REACHED. Genome -> Clade skip. {genome_name} -> {clade}')
-                        print(f'WARNING CLADE LIMIT REACHED. Genome -> Clade skip. {genome_name} -> {clade}')
-                if clade in clade_to_input_genomes:
-                    messages.append(f'Clade Match: {genome_name} -> {clade}')
-                    clade_to_input_genomes[clade].add(genome_name)
-                    genome_refs[genome_to_ref[genome_name]] = genome_name
-                else:
-                    genome_refs_skipped[genome_to_ref[genome_name]] = genome_name
-
-            for genome_ref in genome_refs:
-                info = self.util.get_object_info(genome_ref)
-                path_genome_tsv = path_root / "genome" / f'user_{info[1]}_genome.tsv'
-                print(f'create genome tsv: {path_genome_tsv} for {genome_ref}')
-                self.util.run_user_genome_to_tsv(genome_ref, str(path_genome_tsv))
+        self.run_genome_pipeline(input_params.resolve())
+        path_user_to_clade_json = path_root / 'pangenome' / 'user_to_clade.json'
+        if path_user_to_clade_json.exists():
+            print(f'found input genome pangenome assignments: {path_user_to_clade_json}')
+            with open(path_user_to_clade_json, 'r') as fh:
+                input_genome_to_clade = json.load(fh)
         else:
-            print('skip genome pipeline')
+            print(f'{path_user_to_clade_json} NOT FOUND')
+
+        for genome_name, clade in input_genome_to_clade.items():
+            if clade not in clade_to_input_genomes:
+                if len(clade_to_input_genomes) < param_clade_limit:
+                    clade_to_input_genomes[clade] = set()
+                else:
+                    warnings.append(f'WARNING CLADE LIMIT REACHED. Genome -> Clade skip. {genome_name} -> {clade}')
+                    print(f'WARNING CLADE LIMIT REACHED. Genome -> Clade skip. {genome_name} -> {clade}')
+            if clade in clade_to_input_genomes:
+                messages.append(f'Clade Match: {genome_name} -> {clade}')
+                clade_to_input_genomes[clade].add(genome_name)
+                genome_refs[genome_to_ref[genome_name]] = genome_name
+            else:
+                genome_refs_skipped[genome_to_ref[genome_name]] = genome_name
+
+        for genome_ref in genome_refs:
+            info = self.util.get_object_info(genome_ref)
+            path_genome_tsv = path_root / "genome" / f'user_{info[1]}_genome.tsv'
+            print(f'create genome tsv: {path_genome_tsv} for {genome_ref}')
+            self.util.run_user_genome_to_tsv(genome_ref, str(path_genome_tsv))
 
         executor = TaskExecutor(max_workers=4)
         path_user_genome = path_root / "genome"
@@ -333,25 +325,23 @@ Author: chenry
         for filename_faa in path_user_genome.glob("*.faa"):
             genome_name = filename_faa.stem
             print(f'found protein faa {genome_name} -> {filename_faa}')
-            if skip_annotation:
-                print('skip_annotation')
+
+            if genome_name in genome_allowed:
+                messages.append(f'Run annotation RAST: {filename_faa}')
+                th = executor.run_task(task_rast, path_user_genome / filename_faa, self.rast_client)
+                tasks_rast.append(th)
+                tasks_input_genome.append(th)
+                messages.append(f'Run annotation KOFAM: {filename_faa}')
+                tasks_input_genome.append(executor.run_task(task_kofam,
+                                                            path_user_genome / filename_faa,
+                                                            self.kb_kofam))
+                messages.append(f'Run annotation BAKTA: {filename_faa}')
+                tasks_input_genome.append(executor.run_task(task_bakta,
+                                                            path_user_genome / filename_faa,
+                                                            self.kb_bakta))
             else:
-                if genome_name in genome_allowed:
-                    messages.append(f'Run annotation RAST: {filename_faa}')
-                    th = executor.run_task(task_rast, path_user_genome / filename_faa, self.rast_client)
-                    tasks_rast.append(th)
-                    tasks_input_genome.append(th)
-                    messages.append(f'Run annotation KOFAM: {filename_faa}')
-                    tasks_input_genome.append(executor.run_task(task_kofam,
-                                                                path_user_genome / filename_faa,
-                                                                self.kb_kofam))
-                    messages.append(f'Run annotation BAKTA: {filename_faa}')
-                    tasks_input_genome.append(executor.run_task(task_bakta,
-                                                                path_user_genome / filename_faa,
-                                                                self.kb_bakta))
-                else:
-                    warnings.append(f"Skip annotation for: {genome_name}")
-                    print(f'skip genome: {genome_name}')
+                warnings.append(f"Skip annotation for: {genome_name}")
+                print(f'skip genome: {genome_name}')
 
         path_pangenome = path_root / "pangenome"
         path_pangenome.mkdir(parents=True, exist_ok=True)
@@ -359,12 +349,11 @@ Author: chenry
             if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
                 print(f'Found pangenome folder: {folder_pangenome}')
                 # run pangenome pipeline for - folder_pangenome
-                if not skip_pangenome:
-                    if folder_pangenome == 'none':
-                        warnings.append('Input genome contains genome(s) with no pangenome match.')
-                    self.run_pangenome_pipeline(input_params.resolve(), folder_pangenome)
-                else:
-                    print('skip pangenome')
+
+                if folder_pangenome == 'none':
+                    warnings.append('Input genome contains genome(s) with no pangenome match.')
+                self.run_pangenome_pipeline(input_params.resolve(), folder_pangenome)
+
 
         tasks_pangeome = []
         path_pangenome = path_root / "pangenome"
@@ -373,7 +362,7 @@ Author: chenry
             if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
                 print(f'Found pangenome folder: {folder_pangenome}')
                 path_pangenome_members = path_pangenome / folder_pangenome / 'genome'
-                if path_pangenome_members.exists() and not skip_annotation:
+                if path_pangenome_members.exists():
                     for _f in os.listdir(str(path_pangenome_members)):
                         if _f.endswith('.faa'):
                             th = executor.run_task(task_rast, path_pangenome_members / _f, self.rast_client)
@@ -387,58 +376,55 @@ Author: chenry
             print(f'await for {t.args} {t.status}')
             t.wait()
 
-        
-        if not skip_annotation:
-            template_classifier = get_classifier()
-            print(f'loaded classifier {template_classifier}')
-            if template_classifier is not None:
-                input_genome_class = {}
-                for filename_faa in path_user_genome.iterdir():
-                    genome_name = filename_faa.stem
-                    if str(filename_faa).endswith('.faa') and genome_name in genome_allowed:
-                        print(f'found faa {filename_faa}')
-                        filename_faa_rast = path_user_genome / (filename_faa.stem + '_rast.tsv')
-                        print(f'looking for {filename_faa_rast}')
-                        if filename_faa_rast.exists():
-                            print(f'found {filename_faa} with RAST: {filename_faa_rast}')
-                            genome = read_rast_as_genome(filename_faa_rast, None)
-                            res = template_classifier.classify(genome)
-                            input_genome_class[genome_name] = res
-                            messages.append(f'Genome Type Class: {filename_faa} -> {res}')
-                            print(filename_faa, res)
-                            psortb_org_param = '-n'
-                            if res == 'P':
-                                psortb_org_param = '-p'
-                            elif res == 'A':
-                                psortb_org_param = '-a'
-                            messages.append(f'Run annotation PSORTB {psortb_org_param}: {filename_faa}')
-                            tasks_input_genome.append(executor.run_task(task_psortb,
-                                                                        path_user_genome / filename_faa,
-                                                                        psortb_org_param,
-                                                                        self.kb_psortb))
-                with open(path_user_genome / 'genome_class.tsv', 'w') as fh:
-                    h = ["genome_ref", "genome_name", "modelseed_class"]
-                    fh.write("\t".join(h) + '\n')
-                    for genome_ref, genome_name in genome_refs.items():
-                        line = [genome_ref, genome_name, input_genome_class.get(genome_name, '?')]
-                        fh.write("\t".join(line) + '\n')
 
-        if not skip_modeling_pipeline:
-            model_params = {
-                "input_refs": genome_refs,
-                "token": ctx['token'],
-                "scratch": str(self.shared_folder),
-                "kbversion": self.util.kb_version,
-                "max_phenotypes": None,
-                "module_path": "/kb/module"
-            }
-            model_params_file = path_root / 'model_pipeline_params.json'
-            with open(str(model_params_file), 'w') as f:
-                json.dump(model_params, f, indent=2)
-            print(f"Wrote model pipeline params: {model_params_file}")
-            self.run_model_pipeline(str(model_params_file))
-        else:
-            print('skip modeling pipeline')
+        template_classifier = get_classifier()
+        print(f'loaded classifier {template_classifier}')
+        if template_classifier is not None:
+            input_genome_class = {}
+            for filename_faa in path_user_genome.iterdir():
+                genome_name = filename_faa.stem
+                if str(filename_faa).endswith('.faa') and genome_name in genome_allowed:
+                    print(f'found faa {filename_faa}')
+                    filename_faa_rast = path_user_genome / (filename_faa.stem + '_rast.tsv')
+                    print(f'looking for {filename_faa_rast}')
+                    if filename_faa_rast.exists():
+                        print(f'found {filename_faa} with RAST: {filename_faa_rast}')
+                        genome = read_rast_as_genome(filename_faa_rast, None)
+                        res = template_classifier.classify(genome)
+                        input_genome_class[genome_name] = res
+                        messages.append(f'Genome Type Class: {filename_faa} -> {res}')
+                        print(filename_faa, res)
+                        psortb_org_param = '-n'
+                        if res == 'P':
+                            psortb_org_param = '-p'
+                        elif res == 'A':
+                            psortb_org_param = '-a'
+                        messages.append(f'Run annotation PSORTB {psortb_org_param}: {filename_faa}')
+                        tasks_input_genome.append(executor.run_task(task_psortb,
+                                                                    path_user_genome / filename_faa,
+                                                                    psortb_org_param,
+                                                                    self.kb_psortb))
+            with open(path_user_genome / 'genome_class.tsv', 'w') as fh:
+                h = ["genome_ref", "genome_name", "modelseed_class"]
+                fh.write("\t".join(h) + '\n')
+                for genome_ref, genome_name in genome_refs.items():
+                    line = [genome_ref, genome_name, input_genome_class.get(genome_name, '?')]
+                    fh.write("\t".join(line) + '\n')
+
+
+        model_params = {
+            "input_refs": genome_refs,
+            "token": ctx['token'],
+            "scratch": str(self.shared_folder),
+            "kbversion": self.util.kb_version,
+            "max_phenotypes": None,
+            "module_path": "/kb/module"
+        }
+        model_params_file = path_root / 'model_pipeline_params.json'
+        with open(str(model_params_file), 'w') as f:
+            json.dump(model_params, f, indent=2)
+        print(f"Wrote model pipeline params: {model_params_file}")
+        self.run_model_pipeline(str(model_params_file))
 
         # Done with all tasks
         print('Task barrier input genome annotation')
@@ -495,21 +481,21 @@ Author: chenry
 
         # Save annotated genomes back to workspace from each clade's database
         genome_set_items = []
-        if not skip_save_genome_annotation:
-            for folder_pangenome in os.listdir(str(path_pangenome)):
-                if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
-                    path_db_file = path_root / 'pangenome' / folder_pangenome / 'db.sqlite'
-                    input_genome_names = clade_to_input_genomes[folder_pangenome]
-                    input_genome_refs = [genome_to_ref[x] for x in input_genome_names]
-                    if path_db_file.exists():
-                        print(f'Saving annotated genomes {input_genome_refs} from {folder_pangenome}')
-                        saved_items = self.util.save_annotated_genomes(
-                            genome_refs=input_genome_refs,
-                            suffix=suffix,
-                            output_workspace=workspace_name,
-                            database_filename=str(path_db_file),
-                        )
-                        genome_set_items += saved_items['items']
+
+        for folder_pangenome in os.listdir(str(path_pangenome)):
+            if os.path.isdir(f'{path_pangenome}/{folder_pangenome}'):
+                path_db_file = path_root / 'pangenome' / folder_pangenome / 'db.sqlite'
+                input_genome_names = clade_to_input_genomes[folder_pangenome]
+                input_genome_refs = [genome_to_ref[x] for x in input_genome_names]
+                if path_db_file.exists():
+                    print(f'Saving annotated genomes {input_genome_refs} from {folder_pangenome}')
+                    saved_items = self.util.save_annotated_genomes(
+                        genome_refs=input_genome_refs,
+                        suffix=suffix,
+                        output_workspace=workspace_name,
+                        database_filename=str(path_db_file),
+                    )
+                    genome_set_items += saved_items['items']
 
         print(f'saved items: {genome_set_items}')
         if len(genome_set_items) == 0:

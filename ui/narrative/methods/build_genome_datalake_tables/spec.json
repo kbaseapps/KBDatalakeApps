@@ -57,66 +57,6 @@
             }
         },
         {
-            "id": "skip_annotation",
-            "optional": false,
-            "advanced": true,
-            "allow_multiple": false,
-            "default_values": ["0"],
-            "field_type": "checkbox",
-            "checkbox_options": {
-                "checked_value": 1,
-                "unchecked_value": 0
-            }
-        },
-        {
-            "id": "skip_pangenome",
-            "optional": false,
-            "advanced": true,
-            "allow_multiple": false,
-            "default_values": ["0"],
-            "field_type": "checkbox",
-            "checkbox_options": {
-                "checked_value": 1,
-                "unchecked_value": 0
-            }
-        },
-        {
-            "id": "skip_genome_pipeline",
-            "optional": false,
-            "advanced": true,
-            "allow_multiple": false,
-            "default_values": ["0"],
-            "field_type": "checkbox",
-            "checkbox_options": {
-                "checked_value": 1,
-                "unchecked_value": 0
-            }
-        },
-        {
-            "id": "skip_modeling_pipeline",
-            "optional": false,
-            "advanced": true,
-            "allow_multiple": false,
-            "default_values": ["0"],
-            "field_type": "checkbox",
-            "checkbox_options": {
-                "checked_value": 1,
-                "unchecked_value": 0
-            }
-        },
-        {
-            "id": "skip_save_genome_annotation",
-            "optional": false,
-            "advanced": true,
-            "allow_multiple": false,
-            "default_values": ["0"],
-            "field_type": "checkbox",
-            "checkbox_options": {
-                "checked_value": 1,
-                "unchecked_value": 0
-            }
-        },
-        {
             "id": "export_genome_data",
             "optional": false,
             "advanced": true,
@@ -130,18 +70,6 @@
         },
         {
             "id": "export_pangenome_data",
-            "optional": false,
-            "advanced": true,
-            "allow_multiple": false,
-            "default_values": ["0"],
-            "field_type": "checkbox",
-            "checkbox_options": {
-                "checked_value": 1,
-                "unchecked_value": 0
-            }
-        },
-        {
-            "id": "export_all_content",
             "optional": false,
             "advanced": true,
             "allow_multiple": false,
@@ -214,26 +142,6 @@
                     "target_type_transform": "int"
                 },
                 {
-                    "input_parameter": "skip_annotation",
-                    "target_property": "skip_annotation",
-                    "target_type_transform": "int"
-                },
-                {
-                    "input_parameter": "skip_pangenome",
-                    "target_property": "skip_pangenome",
-                    "target_type_transform": "int"
-                },
-                {
-                    "input_parameter": "skip_genome_pipeline",
-                    "target_property": "skip_genome_pipeline",
-                    "target_type_transform": "int"
-                },
-                {
-                    "input_parameter": "skip_modeling_pipeline",
-                    "target_property": "skip_modeling_pipeline",
-                    "target_type_transform": "int"
-                },
-                {
                     "input_parameter": "export_genome_data",
                     "target_property": "export_genome_data",
                     "target_type_transform": "int"
@@ -241,11 +149,6 @@
                 {
                     "input_parameter": "export_pangenome_data",
                     "target_property": "export_pangenome_data",
-                    "target_type_transform": "int"
-                },
-                {
-                    "input_parameter": "export_all_content",
-                    "target_property": "export_all_content",
                     "target_type_transform": "int"
                 },
                 {
@@ -266,11 +169,6 @@
                 {
                     "input_parameter": "output",
                     "target_property": "output"
-                },
-                {
-                    "input_parameter": "skip_save_genome_annotation",
-                    "target_property": "skip_save_genome_annotation",
-                    "target_type_transform": "int"
                 }
             ],
             "output_mapping": [
