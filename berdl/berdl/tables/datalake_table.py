@@ -36,9 +36,12 @@ class DatalakeTableBuilder:
         self.include_protein_sequence = include_protein_sequence
 
         path_pangenome_members = self.root_pangenome.root / 'members.tsv'
-        self.df_members = pl.read_csv(path_pangenome_members, separator='\t')
-        self.filter_genome_ids = {o[0] for o in self.df_members.select("genome_id").rows()}
-        self.filter_genome_ids |= self.input_genomes
+        if path_pangenome_members.exists():
+            self.df_members = pl.read_csv(path_pangenome_members, separator='\t')
+            self.filter_genome_ids = {o[0] for o in self.df_members.select("genome_id").rows()}
+            self.filter_genome_ids |= self.input_genomes
+        else:
+            self.filter_genome_ids |= self.input_genomes
         self.export_tables = export_tables
 
     def build(self):
@@ -92,7 +95,10 @@ class DatalakeTableBuilder:
                 """)
 
         clade_ids = set()
-        member_ids = {o[0] for o in self.df_members.select("genome_id").rows()}
+        if self.df_members:
+            member_ids = {o[0] for o in self.df_members.select("genome_id").rows()}
+        else:
+            member_ids = set()
         with open(self.root_genome.ani_kepangenomes_json, 'r') as fh:
             clades = json.load(fh)
         for _, v in clades.items():
