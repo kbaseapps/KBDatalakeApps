@@ -213,7 +213,7 @@ class DatalakeTableBuilder:
 
         return feature_ontology_terms
     
-    def get_ani_rows():
+    def get_ani_rows(self):
         ani_rows = {}
         if self.root_genome.ani_kepangenomes_json.exists():
             with open(self.root_genome.ani_kepangenomes_json) as fh:
