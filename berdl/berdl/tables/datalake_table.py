@@ -107,8 +107,9 @@ class DatalakeTableBuilder:
             member_ids = set()
         with open(self.root_genome.ani_kepangenomes_json, 'r') as fh:
             clades = json.load(fh)
-        for _, v in clades.items():
-            clade_ids |= set(v)
+        for k, v in clades.items():
+            if f'user_{k}' in self.input_genomes:
+                clade_ids |= set(v)
 
         gtdb_ids = clade_ids | member_ids
         print(gtdb_ids)
@@ -211,21 +212,8 @@ class DatalakeTableBuilder:
             self._update_ontology(feature_ontology_terms, df)
 
         return feature_ontology_terms
-
-    def build_ani_table(self):
-        conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
-        cur = conn.cursor()
-        cur.execute("DROP TABLE IF EXISTS ani;")
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS ani (
-            genome1 TEXT NOT NULL,
-            genome2 TEXT NOT NULL,
-            ani REAL NOT NULL,
-            af1 REAL NOT NULL,
-            af2 REAL NOT NULL,
-            PRIMARY KEY (genome1, genome2)
-        );
-        """)
+    
+    def get_ani_rows():
         ani_rows = {}
         if self.root_genome.ani_kepangenomes_json.exists():
             with open(self.root_genome.ani_kepangenomes_json) as fh:
@@ -266,6 +254,24 @@ class DatalakeTableBuilder:
                         else:
                             print(f'skip ani pair previously added: {pk}')
 
+        return ani_rows
+
+    def build_ani_table(self):
+        conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
+        cur = conn.cursor()
+        cur.execute("DROP TABLE IF EXISTS ani;")
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS ani (
+            genome1 TEXT NOT NULL,
+            genome2 TEXT NOT NULL,
+            ani REAL NOT NULL,
+            af1 REAL NOT NULL,
+            af2 REAL NOT NULL,
+            PRIMARY KEY (genome1, genome2)
+        );
+        """)
+        
+        ani_rows = self.get_ani_rows()
         for (genome_user, genome_ani), (ani, af1, af2) in ani_rows.items():
             cur.execute(
                 "INSERT INTO ani (genome1, genome2, ani, af1, af2) VALUES (?, ?, ?, ?, ?)",
