@@ -35,6 +35,7 @@ class DatalakeTableBuilder:
         self.include_dna_sequence = include_dna_sequence
         self.include_protein_sequence = include_protein_sequence
         self.df_members = None
+        self.df_fitness_members = pl.read_csv('/kb/module/data/genome_phenotype_metadata.tsv', separator='\t')
 
         path_pangenome_members = self.root_pangenome.root / 'members.tsv'
         if path_pangenome_members.exists():
@@ -44,6 +45,9 @@ class DatalakeTableBuilder:
         else:
             self.filter_genome_ids = set(self.input_genomes)
         self.export_tables = export_tables
+
+        if self.df_fitness_members is not None:
+            self.filter_genome_ids |= {x[0] for x in self.df_fitness_members.select("genome_id").rows()}
 
     def build(self):
         self.build_genome_table()
@@ -103,8 +107,9 @@ class DatalakeTableBuilder:
             member_ids = set()
         with open(self.root_genome.ani_kepangenomes_json, 'r') as fh:
             clades = json.load(fh)
-        for _, v in clades.items():
-            clade_ids |= set(v)
+        for k, v in clades.items():
+            if f'user_{k}' in self.input_genomes:
+                clade_ids |= set(v)
 
         gtdb_ids = clade_ids | member_ids
         print(gtdb_ids)
@@ -207,21 +212,8 @@ class DatalakeTableBuilder:
             self._update_ontology(feature_ontology_terms, df)
 
         return feature_ontology_terms
-
-    def build_ani_table(self):
-        conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
-        cur = conn.cursor()
-        cur.execute("DROP TABLE IF EXISTS ani;")
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS ani (
-            genome1 TEXT NOT NULL,
-            genome2 TEXT NOT NULL,
-            ani REAL NOT NULL,
-            af1 REAL NOT NULL,
-            af2 REAL NOT NULL,
-            PRIMARY KEY (genome1, genome2)
-        );
-        """)
+    
+    def get_ani_rows(self):
         ani_rows = {}
         if self.root_genome.ani_kepangenomes_json.exists():
             with open(self.root_genome.ani_kepangenomes_json) as fh:
@@ -262,6 +254,24 @@ class DatalakeTableBuilder:
                         else:
                             print(f'skip ani pair previously added: {pk}')
 
+        return ani_rows
+
+    def build_ani_table(self):
+        conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
+        cur = conn.cursor()
+        cur.execute("DROP TABLE IF EXISTS ani;")
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS ani (
+            genome1 TEXT NOT NULL,
+            genome2 TEXT NOT NULL,
+            ani REAL NOT NULL,
+            af1 REAL NOT NULL,
+            af2 REAL NOT NULL,
+            PRIMARY KEY (genome1, genome2)
+        );
+        """)
+        
+        ani_rows = self.get_ani_rows()
         for (genome_user, genome_ani), (ani, af1, af2) in ani_rows.items():
             cur.execute(
                 "INSERT INTO ani (genome1, genome2, ani, af1, af2) VALUES (?, ?, ?, ?, ?)",
@@ -544,18 +554,25 @@ class DatalakeTableBuilder:
         cur.execute(sql_create_table)
 
         path_to_data = self.root_genome.root / 'phenotypes' / 'genome_phenotypes.tsv'
+        ex = None
+        inc = None
         if path_to_data.exists():
             ldf = pl.scan_csv(path_to_data, separator='\t')
             genome_ids = set(
                 ldf.select("genome_id").unique().collect().get_column("genome_id").to_list())
             excluded = genome_ids - self.filter_genome_ids
-            print('genome_phenotype excluded', excluded)
+            allowed = genome_ids & self.filter_genome_ids
+            ex = excluded
+            inc = allowed
+            print('genome_phenotype excluded', len(excluded))
+            print('genome_phenotype allowed', len(allowed))
 
             df_filter = ldf.filter(pl.col("genome_id").is_in(self.filter_genome_ids)).collect()
             df_filter.to_pandas().to_sql("genome_phenotype", conn, if_exists="append", index=False)
 
         conn.commit()
         conn.close()
+        return ex, inc
 
     def build_gene_phenotype(self):
         conn = sqlite3.connect(str(self.root_pangenome.out_sqlite3_file))
