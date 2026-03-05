@@ -64,7 +64,7 @@ parameters:
         short-hint: |
             Zip all input genome data
         long-hint: |
-            x
+            Export intermediate products created to process user input genomes
 
     export_pangenome_data:
         ui-name: |
@@ -72,7 +72,7 @@ parameters:
         short-hint: |
             Zip all pan-genome data
         long-hint: |
-            x
+            Export intermediate products created to process matched pangenomes
 
     export_databases:
         ui-name: |
@@ -80,7 +80,7 @@ parameters:
         short-hint: |
             Export the compiled sqlite database
         long-hint: |
-            x
+            Export clade sqlite database
 
     export_folder_models:
         ui-name: |

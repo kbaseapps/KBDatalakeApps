@@ -605,8 +605,8 @@ Author: chenry
                 })['shock_id']
                 file_links.append({
                     'shock_id': archive_shock_id,
-                    'name': f'{folder_pangenome}.zip',
-                    'label': f'{folder_pangenome} database',
+                    'name': f'{folder_pangenome}.sqlite3.zip',
+                    'label': f'{folder_pangenome} sqlite3 database',
                     'description': f'{folder_pangenome} clade database'
                 })
 
