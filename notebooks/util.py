@@ -9,21 +9,16 @@ from pathlib import Path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 script_path = os.path.abspath(__file__)
 script_dir = os.path.dirname(script_path)
-base_dir = "/home/chenry/Dropbox/Projects"
-kbutillib_dir = os.path.dirname(script_dir)
+base_dir = os.path.dirname(os.path.dirname(script_dir))
+folder_name = os.path.basename(script_dir)
 
-sys.path = [base_dir+"/KBUtilLib/src",base_dir+"/cobrakbase",base_dir+"/ModelSEEDpy/","/home/chenry/MyEnvs/modelseed_cplex"] + sys.path
+sys.path = [base_dir+"/KBDatalakeApps/lib",base_dir+"/KBUtilLib/src",base_dir+"/cobrakbase",base_dir+"/ModelSEEDpy/","/home/chenry/MyEnvs/modelseed_cplex"] + sys.path
 
-# Add lib directory so KBDatalakeApps.KBDatalakeUtils can be imported
-sys.path.insert(0, os.path.join(kbutillib_dir,"lib"))
 
 # Import utilities with error handling
 from kbutillib import NotebookUtils, SharedEnvUtils,KBWSUtils
 
 import pandas as pd
-
-# Import CatalogClient from lib directory (already in sys.path from line above)
-from kbase_catalog_client import CatalogClient, CatalogError
 
 # Import the same functions from KBDatalakeUtils that the Impl file does:
 #   from KBDatalakeApps.KBDatalakeUtils import KBDataLakeUtils, run_phenotype_simulation, run_model_reconstruction
