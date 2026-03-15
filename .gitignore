@@ -57,4 +57,4 @@ notebooks/data/
 # Keep these
 !.claude/CLAUDE.md
 !.claude/settings.local.json
-!KBDatalakeApps.code-workspace
+\!KBDatalakeApps.code-workspace
