@@ -44,8 +44,8 @@ notebooks/datacache/
 .DS_Store
 Thumbs.db
 
-# Claude (commands are managed by claude-commands)
-.claude/commands/
+# Claude
+.claude/settings.local.json
 
 # Agent-IO (Claude command tracking - keep in git for project history)
 # agent-io/ is intentionally tracked
@@ -54,7 +54,4 @@ Thumbs.db
 activate.sh
 notebooks/data/
 
-# Keep these
-!.claude/CLAUDE.md
-!.claude/settings.local.json
 \!KBDatalakeApps.code-workspace
