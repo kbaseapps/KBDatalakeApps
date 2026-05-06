@@ -55,3 +55,7 @@ activate.sh
 notebooks/data/
 
 \!KBDatalakeApps.code-workspace
+
+# claude-skills runtime artifacts (populated by `claude-skills sync`)
+.claude/commands/
+.claude/skills/
